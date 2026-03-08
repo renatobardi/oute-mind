@@ -8,29 +8,36 @@ O **Estimator** automatiza o ciclo de vida da estimativa de software: desde a de
 ---
 
 ## 🏗️ Estrutura do Projeto
-
 ```text
 oute-mind/
-├── src/estimator/       # 📦 Pacote principal
-│   ├── config/          # ⚙️ Definições de Agentes e Tarefas (YAML)
-│   ├── crew.py          # 🤖 Orquestração da Crew (6 Agentes)
-│   └── main.py          # 🚀 Ponto de entrada (CLI)
-├── knowledge/           # 📚 Base de conhecimento (Multi-tenant)
-├── reference/           # 📖 DEEPWIKI, Plano de Implantação e Docs
-└── AGENTS.md            # 📝 Referência vital para assistentes de IA
+├── src/estimator/       # 📦 Núcleo da Inteligência (CrewAI)
+│   ├── config/          # ⚙️ Definições YAML de Comportamento e Tarefas
+│   ├── tools/           # 🛠️ Ferramentas Customizadas (Postgres, Jina, AIMind)
+│   ├── crew.py          # 🤖 Orquestração da Crew (Pipeline de 6 Agentes)
+│   └── main.py          # 🚀 Ponto de Entrada (FastAPI & CLI)
+├── reference/           # 📖 DEEPWIKI & Plano de Implementação
+└── knowledge/           # 📚 Base RAG Multi-tenant (PDFs, Docs, History)
 ```
 
 ---
 
-## 👥 Fluxo de Trabalho (Pipeline 1-6)
+## 👥 Agentes de Elite (Workflow POC)
 
-1.  **Solution Architect (Interviewer)**: Descoberta multi-modal via checklists Postgres. 
-    *   *(Ponto de Aprovação Humana obrigatório)*
-2.  **Technical Analyst (RAG Specialist)**: Validação histórica via Postgres (JSONB) e Jina.ai Reader.
-3.  **Software Architect (Designer)**: Design técnico/funcional e persistência para relatórios.
-4.  **Cost Specialist (FinOps)**: Modelagem de 3 resultados (Somente Humano, Somente IA, Híbrido).
-5.  **Reviewer & Presenter**: Revisão final, feedback loop e aceite pelo cliente.
-6.  **Knowledge Specialist**: *(Paralelo)* Enriquecimento da base vetorial Qdrant.
+1.  **Solution Architect (Interviewer)**: Descoberta multi-modal via checklists PostgreSQL. Capta contexto de áudio/vídeo.
+2.  **Technical Analyst (RAG)**: Navega em silos de conhecimento via **Qdrant** e faz pesquisas vivas com **Jina.ai**.
+3.  **Software Architect (Designer)**: Consolida achados em arquitetura formal e persiste no banco de dados.
+4.  **Cost Specialist (FinOps)**: Compara custos de desenvolvimento Humano vs. IA vs. Híbrido.
+5.  **Reviewer & Presenter**: Facilita o aceite do cliente com feedback loop estruturado.
+6.  **Knowledge Specialist**: *(Paralelo)* Expande a memória do sistema para o próximo projeto.
+
+---
+
+## ⚡ Diferenciais Tecnológicos
+
+*   **Gemini 2.0 Flash**: Motor de inteligência multi-modal nativo para análise de mídias ricas.
+*   **PostgreSQL + JSONB**: Abordagem híbrida para dados relacionais e flexibilidade de padrões NoSQL.
+*   **RAG Multi-tenant**: Isolamento lógico de conhecimento por Time, Usuário e Projeto.
+*   **Jina.ai Integration**: Leitura otimizada de documentação web para eliminar alucinações técnicas.
 
 ---
 

@@ -1,47 +1,34 @@
-# SoftwareProjectEstimatorWithRag Crew
+## 🏗️ Sobre o Estimator
 
-Welcome to the SoftwareProjectEstimatorWithRag Crew project, powered by [crewAI](https://crewai.com). This template is designed to help you set up a multi-agent AI system with ease, leveraging the powerful and flexible framework provided by crewAI. Our goal is to enable your agents to collaborate effectively on complex tasks, maximizing their collective intelligence and capabilities.
+O **Estimator** é um sistema de multi-agentes (CrewAI) especializado em gerar orçamentos e especificações técnicas de alta fidelidade para projetos de software. Ele utiliza **RAG Multi-tenant** no Qdrant e processamento **Multi-modal** nativo do Gemini 2.0 Flash para entender requisitos vindo de textos, áudios, imagens e vídeos.
 
-## Installation
+---
 
-Ensure you have Python >=3.10 <3.14 installed on your system. This project uses [UV](https://docs.astral.sh/uv/) for dependency management and package handling, offering a seamless setup and execution experience.
+## 👥 Agentes do Sistema
 
-First, if you haven't already, install uv:
+O projeto conta com 6 agentes especializados configurados em `src/estimator/config/agents.yaml`:
+1.  **Solution Architect (Interviewer)**: Descoberta e checklists relacional.
+2.  **Technical Analyst (RAG)**: Pesquisa histórica e validação web (Jina.ai).
+3.  **Software Architect (Designer)**: Design técnico e persistência Postgres.
+4.  **Cost Specialist (FinOps)**: Cenários financeiros e otimização.
+5.  **Reviewer & Presenter**: Revisão funcional e loop de aceite.
+6.  **Knowledge Specialist**: Memória de longo prazo (Paralelo).
 
-```bash
-pip install uv
-```
+---
 
-Next, navigate to your project directory and install the dependencies:
+## 🚀 Como Executar
 
-(Optional) Lock the dependencies and install them by using the CLI command:
-```bash
-crewai install
-```
-### Customizing
+O projeto utiliza `uv` para gestão de dependências.
 
-**Add your `OPENAI_API_KEY` into the `.env` file**
-
-- Modify `src/software_project_estimator_with_rag/config/agents.yaml` to define your agents
-- Modify `src/software_project_estimator_with_rag/config/tasks.yaml` to define your tasks
-- Modify `src/software_project_estimator_with_rag/crew.py` to add your own logic, tools and specific args
-- Modify `src/software_project_estimator_with_rag/main.py` to add custom inputs for your agents and tasks
-
-## Running the Project
-
-To kickstart your crew of AI agents and begin task execution, run this from the root folder of your project:
-
-```bash
-$ crewai run
-```
-
-This command initializes the software_project_estimator_with_rag Crew, assembling the agents and assigning them tasks as defined in your configuration.
-
-This example, unmodified, will run the create a `report.md` file with the output of a research on LLMs in the root folder.
-
-## Understanding Your Crew
-
-The software_project_estimator_with_rag Crew is composed of multiple AI agents, each with unique roles, goals, and tools. These agents collaborate on a series of tasks, defined in `config/tasks.yaml`, leveraging their collective skills to achieve complex objectives. The `config/agents.yaml` file outlines the capabilities and configurations of each agent in your crew.
+1.  **Instalação**:
+    ```bash
+    uv sync
+    ```
+2.  **Configuração**: Adicione suas chaves no `.env` (GEMINI_API_KEY, SERPER_API_KEY, etc).
+3.  **Execução**:
+    ```bash
+    uv run estimator run
+    ```
 
 ## Support
 
