@@ -55,8 +55,28 @@ graph TD
 | **Relational & NoSQL**| **PostgreSQL (JSONB)** | Checklists, Histórico e Padrões (Subst. Firebase) |
 | **Web Reading** | **Jina.ai Reader** | Leitura de Docs Oficiais para o Analista |
 | **Vector DB** | Qdrant | Memória RAG (Team/User/Project) |
-| **AI Memory** | MindsDB | Sincronismo entre agentes |
+| **Vector DB** | Qdrant | Memória RAG (Team/User/Project) |
+| **AI Memory** | MindsDB (AIMindTool) | Sincronismo entre agentes |
 | **API Trigger** | FastAPI + Redis/Queue | Orquestração de entrada |
+
+---
+
+## ⚡ Gatilhos & Orquestração (Trigger Mechanism)
+
+O sistema foi desenhado para ser resiliente e escalável, utilizando uma arquitetura orientada a eventos para o disparo da Crew.
+
+1.  **FastAPI Entrypoint**: O frontend envia uma requisição para o endpoint `/kickoff`.
+2.  **Redis Queue**: A tarefa é enfileirada no Redis para processamento asíncrono.
+3.  **Processamento Background**: Um worker especializado (ex: Celery ou RQ) instasia a Crew e inicia a execução.
+4.  **Webhooks/Status**: O progresso é persistido no Postgres, permitindo que o frontend consulte o status em tempo real via `/status/{id}`.
+
+### 🎥 Processamento Multi-modal (Gemini 2.0 Flash)
+
+O **Agente 1 (Solution Architect)** utiliza as capacidades nativas do Gemini 2.0 para processar:
+*   **Imagens**: Diagramas de arquitetura, fluxogramas em guardanapo ou prints de sistemas legados.
+*   **Áudio**: Gravações de reuniões de discovery ou áudios de WhatsApp/Telegram com requisitos.
+*   **Vídeo**: Walkthroughs de sistemas atuais ou explicações gravadas de fluxos de negócio.
+*   **Documentos**: PDFs, DOCX e Planilhas complexas.
 
 ---
 
