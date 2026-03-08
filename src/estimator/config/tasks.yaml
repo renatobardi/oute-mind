@@ -1,0 +1,70 @@
+---
+conduct_architecture_discovery_session:
+  description: >
+    Execute a comprehensive discovery interview with the client. The process must start
+    by querying a PostgreSQL relational database to fetch initial scoping questions.
+    Based on the client's initial responses, identify and retrieve the specific
+    project checklist from the PostgreSQL database. Process diverse media inputs:
+    text, images, audio, and video. 
+    NOTE: This task requires manual client approval before proceeding to Technical Analysis.
+  expected_output: >
+    A detailed discovery report with unique estimation ID: {estimation_id}.
+  agent: software_architecture_interviewer
+
+rag_enhanced_technical_analysis:
+  description: >
+    Utilize multi-tenant RAG (Team, User, Project) and the Jina.ai Reader tool to 
+    validate the discovery report. Search for framework patterns in PostgreSQL JSONB
+    and historical durations. Provide a technical validation based on official 
+    documentation and internet research.
+  expected_output: >
+    A technical validation report with historical timeframes and framework standards.
+  agent: technical_research_analyst_with_rag
+  context:
+    - conduct_architecture_discovery_session
+
+consolidate_design_and_persist:
+  description: >
+    Consolidate all requirements and technical analysis into a final functional 
+    and technical design. Populate all relevant PostgreSQL tables with the project 
+    data to support future reporting outputs (Web, PDF, PPT, Excel).
+  expected_output: >
+    A finalized design blueprint and confirmation of PostgreSQL data persistence.
+  agent: software_architect
+  context:
+    - rag_enhanced_technical_analysis
+
+financial_scenario_modeling:
+  description: >
+    Generate three detailed cost scenarios based on the architect's design:
+    1) Humans-only development, 2) AI-driven development, and 3) Hybrid approach.
+    Include FinOps optimizations (CUDs, preemptive) and detailed risk assessments.
+  expected_output: >
+    A financial report with three costed scenarios and risk analysis.
+  agent: cost_optimization_specialist
+  context:
+    - consolidate_design_and_persist
+
+final_review_and_presentation:
+  description: >
+    Review the consolidated functional, technical, and financial results. 
+    Present the results to the client, allowing for user-driven revisions.
+    Evaluate user changes, raise technical concerns where necessary, and 
+    update the plan until final user acceptance is confirmed.
+  expected_output: >
+    A final approved estimation package and record of the acceptance process.
+  agent: reviewer_and_presenter
+  context:
+    - financial_scenario_modeling
+
+long_term_knowledge_enrichment:
+  description: >
+    In parallel with the final presentation and review, index all final 
+    estimation results, project characteristics, and technical patterns 
+    into the Qdrant vector database. Ensure the multi-tenant silos (Team, User) 
+    are updated with these new insights for future retrieval.
+  expected_output: >
+    Confirmation of knowledge base enrichment in Qdrant.
+  agent: knowledge_management_specialist
+  context:
+    - final_review_and_presentation
