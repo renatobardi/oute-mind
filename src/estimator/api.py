@@ -420,6 +420,52 @@ async def health_services():
         return f"{agent_count} agents, {task_count} tasks"
     checks.append(_check_service("crewai", check_crewai))
 
+    # --- Infrastructure ---
+
+    # Prometheus
+    def check_prometheus():
+        resp = http_requests.get("http://prometheus:9090/-/healthy", timeout=5)
+        resp.raise_for_status()
+        return resp.text.strip()
+    checks.append(_check_service("prometheus", check_prometheus))
+
+    # Grafana
+    def check_grafana():
+        resp = http_requests.get("http://grafana:3000/api/health", timeout=5)
+        resp.raise_for_status()
+        return resp.json()
+    checks.append(_check_service("grafana", check_grafana))
+
+    # Caddy
+    def check_caddy():
+        resp = http_requests.get("http://caddy:80/", timeout=5)
+        # Caddy returns any status if running — just check it responds
+        return f"HTTP {resp.status_code}"
+    checks.append(_check_service("caddy", check_caddy))
+
+    # --- oute-main services ---
+
+    # Dashboard
+    def check_dashboard():
+        resp = http_requests.get("http://00_dashboard:3000/health", timeout=5)
+        resp.raise_for_status()
+        return resp.json()
+    checks.append(_check_service("dashboard", check_dashboard))
+
+    # Auth Profile
+    def check_auth():
+        resp = http_requests.get("http://01_auth-profile:3001/health", timeout=5)
+        resp.raise_for_status()
+        return resp.json()
+    checks.append(_check_service("auth_profile", check_auth))
+
+    # Projects
+    def check_projects():
+        resp = http_requests.get("http://02_projects:3002/health", timeout=5)
+        resp.raise_for_status()
+        return resp.json()
+    checks.append(_check_service("projects", check_projects))
+
     all_ok = all(c["status"] == "ok" for c in checks)
     return {"status": "healthy" if all_ok else "degraded", "services": checks}
 

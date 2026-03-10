@@ -85,6 +85,20 @@
   .btn.primary { background: var(--blue); border-color: var(--blue); color: white; }
   .btn.primary:hover { opacity: 0.9; }
 
+  .group-header {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 8px 0 4px;
+    margin-top: 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+
+  .group-header:first-child { margin-top: 0; }
+
   .grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
@@ -234,7 +248,7 @@
   </div>
 </div>
 
-<div class="grid" id="grid"></div>
+<div id="grid"></div>
 
 <div class="footer">
   <span>Estimator MVP1</span> &middot; CrewAI v1.10.1 &middot; Gemini 2.5 Flash-Lite
@@ -242,20 +256,44 @@
 
 <script>
 const SERVICES = [
-  { key: "postgresql",  name: "PostgreSQL",    tag: "v16",       desc: "Relational DB + JSONB" },
-  { key: "redis",       name: "Redis",         tag: "v7",        desc: "Cache / Queue" },
-  { key: "qdrant",      name: "Qdrant",        tag: "latest",    desc: "Vector Database" },
-  { key: "mindsdb",     name: "MindsDB",       tag: "latest",    desc: "Memory System" },
-  { key: "jina_reader", name: "Jina Reader",   tag: "cloud API",  desc: "Web Scraping" },
-  { key: "gemini",      name: "Google Gemini",  tag: "2.5 Flash-Lite", desc: "LLM Provider" },
-  { key: "crewai",      name: "CrewAI",        tag: "v1.10.1",   desc: "Agent Orchestration" },
+  // oute-mind — Backend AI
+  { key: "postgresql",  name: "PostgreSQL",    tag: "v16",            desc: "Relational DB + JSONB",    group: "oute-mind" },
+  { key: "redis",       name: "Redis",         tag: "v7",             desc: "Cache / Queue",            group: "oute-mind" },
+  { key: "qdrant",      name: "Qdrant",        tag: "latest",         desc: "Vector Database",          group: "oute-mind" },
+  { key: "mindsdb",     name: "MindsDB",       tag: "latest",         desc: "Memory System",            group: "oute-mind" },
+  { key: "jina_reader", name: "Jina Reader",   tag: "cloud API",      desc: "Web Scraping",             group: "oute-mind" },
+  { key: "gemini",      name: "Google Gemini",  tag: "2.5 Flash-Lite", desc: "LLM Provider",            group: "oute-mind" },
+  { key: "crewai",      name: "CrewAI",        tag: "v1.10.1",        desc: "Agent Orchestration",      group: "oute-mind" },
+  // Infrastructure
+  { key: "prometheus",  name: "Prometheus",    tag: "latest",         desc: "Metrics Collection",       group: "infra" },
+  { key: "grafana",     name: "Grafana",       tag: "latest",         desc: "Monitoring Dashboards",    group: "infra" },
+  { key: "caddy",       name: "Caddy",         tag: "latest",         desc: "Reverse Proxy / TLS",      group: "infra" },
+  // oute-main — Frontend Web
+  { key: "dashboard",    name: "Dashboard",     tag: "SvelteKit",      desc: "Main UI",                  group: "oute-main" },
+  { key: "auth_profile", name: "Auth Profile",  tag: "SvelteKit",      desc: "Authentication Service",   group: "oute-main" },
+  { key: "projects",     name: "Projects",      tag: "SvelteKit",      desc: "Project Management",       group: "oute-main" },
 ];
 
 let results = {};
 
+const GROUP_LABELS = {
+  "oute-mind": "oute-mind — Backend AI",
+  "infra": "Infrastructure",
+  "oute-main": "oute-main — Frontend Web",
+};
+
 function renderCards() {
   const grid = document.getElementById("grid");
-  grid.innerHTML = SERVICES.map(svc => {
+  let html = "";
+  let lastGroup = "";
+
+  SERVICES.forEach(svc => {
+    if (svc.group !== lastGroup) {
+      if (lastGroup) html += `</div>`;
+      html += `<div class="group-header">${GROUP_LABELS[svc.group] || svc.group}</div><div class="grid">`;
+      lastGroup = svc.group;
+    }
+
     const r = results[svc.key];
     const status = r ? r.status : "checking";
     const label = status === "ok" ? "OK" : status === "error" ? "NOK" : "...";
@@ -263,7 +301,7 @@ function renderCards() {
     const detail = r ? (typeof r.detail === "object" ? JSON.stringify(r.detail) : r.detail) : "";
     const logContent = r ? JSON.stringify(r, null, 2) : "Waiting...";
 
-    return `
+    html += `
       <div class="card ${status}" id="card-${svc.key}">
         <div class="card-header">
           <div class="card-title">
@@ -288,7 +326,10 @@ function renderCards() {
         </div>
       </div>
     `;
-  }).join("");
+  });
+
+  html += `</div>`;
+  grid.innerHTML = html;
 }
 
 function escapeHtml(str) {
