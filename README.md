@@ -34,7 +34,7 @@ oute-mind/
 
 ## ⚡ Diferenciais Tecnológicos
 
-*   **Gemini 2.0 Flash**: Motor de inteligência multi-modal nativo para análise de mídias ricas.
+*   **Gemini 1.5 Flash**: Motor de inteligência multi-modal nativo para análise de mídias ricas.
 *   **PostgreSQL + JSONB**: Abordagem híbrida para dados relacionais e flexibilidade de padrões NoSQL.
 *   **RAG Multi-tenant**: Isolamento lógico de conhecimento por Time, Usuário e Projeto.
 *   **Jina.ai Integration**: Leitura otimizada de documentação web para eliminar alucinações técnicas.

@@ -20,7 +20,7 @@ Este documento detalha as etapas técnicas para transformar o planejamento atual
     - [ ] `PostgresTool`: Leitura de checklists e escrita de resultados.
     - [ ] `JinaReaderTool`: Wrapper para chamadas ao `r.jina.ai`.
     - [ ] `MindsDBTool`: Sincronismo de contexto entre agentes.
-- [ ] **Refinamento de Prompts**: Ajustar as instruções nos YAMLs para garantir que o Gemini 2.0 extraia o máximo das mídias (áudio/vídeo).
+- [ ] **Refinamento de Prompts**: Ajustar as instruções nos YAMLs para garantir que o Gemini 1.5 extraia o máximo das mídias (áudio/vídeo).
 
 ## 🔌 Fase 3: API & Orquestração (The Interface)
 **Objetivo**: Expor a Crew para o frontend.

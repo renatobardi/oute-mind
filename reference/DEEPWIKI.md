@@ -58,7 +58,7 @@ graph TD
 ### 1. Software Architecture Interviewer
 - **Especialidade**: Solution Architect.
 - **Missão**: Entrevista multi-modal (Texto, Imagem, Som, Vídeo) via checklists Postgres.
-- **Ferramentas**: `Gemini 2.0 (Nativo)`, `FileRead`, `OCR`, `MindsDB`, `ScrapeWebsite`.
+- **Ferramentas**: `Gemini 1.5 (Nativo)`, `FileRead`, `OCR`, `MindsDB`, `ScrapeWebsite`.
 
 ### 2. Technical Research Analyst
 - **Especialidade**: Especialista em Recuperação Documental & Discovery.
@@ -88,7 +88,7 @@ graph TD
 | Componente | Tecnologia | Papel |
 | :--- | :--- | :--- |
 | **Orquestração** | CrewAI v1.10.1 | Fluxo de Agentes |
-| **LLM / Mídias** | **Gemini 2.0 Flash** | Processamento de Texto, Áudio e Vídeo |
+| **LLM / Mídias** | **Gemini 1.5 Flash** | Processamento de Texto, Áudio e Vídeo |
 | **Relational & NoSQL**| **PostgreSQL (JSONB)** | Checklists, Histórico e Padrões (Subst. Firebase) |
 | **Web Reading** | **Jina.ai Reader** | Leitura de Docs Oficiais para o Analista |
 | **Vector DB** | Qdrant | Memória RAG (Team/User/Project) |
@@ -107,9 +107,9 @@ O sistema foi desenhado para ser resiliente e escalável, utilizando uma arquite
 3.  **Processamento Background**: Um worker especializado (ex: Celery ou RQ) instasia a Crew e inicia a execução.
 4.  **Webhooks/Status**: O progresso é persistido no Postgres, permitindo que o frontend consulte o status em tempo real via `/status/{id}`.
 
-### 🎥 Processamento Multi-modal (Gemini 2.0 Flash)
+### 🎥 Processamento Multi-modal (Gemini 1.5 Flash)
 
-O **Agente 1 (Solution Architect)** utiliza as capacidades nativas do Gemini 2.0 para processar:
+O **Agente 1 (Solution Architect)** utiliza as capacidades nativas do Gemini 1.5 para processar:
 *   **Imagens**: Diagramas de arquitetura, fluxogramas em guardanapo ou prints de sistemas legados.
 *   **Áudio**: Gravações de reuniões de discovery ou áudios de WhatsApp/Telegram com requisitos.
 *   **Vídeo**: Walkthroughs de sistemas atuais ou explicações gravadas de fluxos de negócio.
@@ -130,7 +130,7 @@ Utilizaremos **Docker Compose** para orquestrar todos os serviços localmente na
 *   **Jina Utility**: Ferramentas de suporte local para leitura de logs.
 
 ### Acesso Externo
-*   **Gemini 2.0 Flash**: O processamento de LLM e multi-modalidade será feito via **API na Internet** (Google Cloud AI Services). Esta é a única saída de rede necessária para o funcionamento da inteligência central.
+*   **Gemini 1.5 Flash**: O processamento de LLM e multi-modalidade será feito via **API na Internet** (Google Cloud AI Services). Esta é a única saída de rede necessária para o funcionamento da inteligência central.
 
 ---
 

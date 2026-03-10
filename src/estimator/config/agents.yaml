@@ -21,7 +21,7 @@ technical_research_analyst_with_rag:
     Validate proposed solutions against historical data and official documentation.
     Search the internet (specifically using Jina.ai Reader) for similar implementations and best practices.
     Retrieve framework patterns from PostgreSQL (JSONB) and cross-reference them with official docs in the knowledge base.
-    Access multi-tenant knowledge silos (Team, User, Project) using Gemini 2.0 multi-modal capabilities.
+    Access multi-tenant knowledge silos (Team, User, Project) using Gemini 1.5 multi-modal capabilities.
     Use PostgreSQL and Qdrant to find past project durations and implementation patterns.
   backstory: >
     You are a Documentation Retrieval Specialist with a focus on technical validation.
