@@ -31,7 +31,10 @@ if "OPENAI_API_KEY" not in os.environ or not os.environ.get("OPENAI_API_KEY"):
 # Now import the crew after env vars are loaded
 import uvicorn
 import redis
+import requests as http_requests
+import psycopg2
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from estimator.crew import SoftwareProjectEstimatorWithRagCrew
 
@@ -325,6 +328,108 @@ async def approve_estimation(estimation_id: str, request: ApproveRequest):
         "status": "approved",
         "message": "Discovery approved. Pipeline resuming from RAG analysis.",
     }
+
+
+# --- Service Health Checks ---
+
+def _check_service(name: str, check_fn) -> dict:
+    """Run a health check function and return status dict."""
+    try:
+        start = datetime.now(timezone.utc)
+        result = check_fn()
+        elapsed = (datetime.now(timezone.utc) - start).total_seconds()
+        return {"service": name, "status": "ok", "latency_ms": round(elapsed * 1000), "detail": result}
+    except Exception as e:
+        return {"service": name, "status": "error", "detail": str(e)}
+
+
+@app.get("/health/services")
+async def health_services():
+    """Check connectivity to all backend services."""
+    checks = []
+
+    # PostgreSQL
+    def check_postgres():
+        conn = psycopg2.connect(
+            host=os.getenv("POSTGRES_HOST", "postgres"),
+            port=int(os.getenv("POSTGRES_PORT", "5432")),
+            user=os.getenv("POSTGRES_USER", "oute_prod_user"),
+            password=os.getenv("POSTGRES_PASSWORD", ""),
+            database=os.getenv("POSTGRES_DB", "oute_production"),
+            connect_timeout=5,
+        )
+        cur = conn.cursor()
+        cur.execute("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'estimator'")
+        count = cur.fetchone()[0]
+        cur.close()
+        conn.close()
+        return f"{count} tables in estimator schema"
+    checks.append(_check_service("postgresql", check_postgres))
+
+    # Redis
+    def check_redis():
+        r = _get_redis()
+        return r.ping()
+    checks.append(_check_service("redis", check_redis))
+
+    # Qdrant
+    def check_qdrant():
+        url = os.getenv("QDRANT_URL", "http://qdrant:6333")
+        resp = http_requests.get(f"{url}/healthz", timeout=5)
+        resp.raise_for_status()
+        return resp.text.strip()
+    checks.append(_check_service("qdrant", check_qdrant))
+
+    # MindsDB
+    def check_mindsdb():
+        host = os.getenv("MINDSDB_HOST", "mindsdb")
+        port = os.getenv("MINDSDB_PORT", "47334")
+        resp = http_requests.get(f"http://{host}:{port}/api/status", timeout=5)
+        resp.raise_for_status()
+        return resp.json()
+    checks.append(_check_service("mindsdb", check_mindsdb))
+
+    # Jina Reader
+    def check_jina():
+        host = os.getenv("JINA_READER_HOST", "jina-reader")
+        port = os.getenv("JINA_READER_PORT", "3000")
+        resp = http_requests.get(f"http://{host}:{port}/health", timeout=5)
+        resp.raise_for_status()
+        return "healthy"
+    checks.append(_check_service("jina_reader", check_jina))
+
+    # Google Gemini
+    def check_gemini():
+        api_key = os.getenv("GOOGLE_API_KEY", "")
+        resp = http_requests.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}",
+            json={"contents": [{"parts": [{"text": "Reply with only: OK"}]}]},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+        return text.strip()
+    checks.append(_check_service("gemini", check_gemini))
+
+    # CrewAI
+    def check_crewai():
+        crew = get_crew()
+        agent_count = len(crew.crew().agents)
+        task_count = len(crew.crew().tasks)
+        return f"{agent_count} agents, {task_count} tasks"
+    checks.append(_check_service("crewai", check_crewai))
+
+    all_ok = all(c["status"] == "ok" for c in checks)
+    return {"status": "healthy" if all_ok else "degraded", "services": checks}
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard():
+    """Service health dashboard."""
+    html_path = os.path.join(os.path.dirname(__file__), "dashboard.html")
+    with open(html_path, "r") as f:
+        return f.read()
 
 
 @app.post("/estimate", response_model=EstimationResponse)

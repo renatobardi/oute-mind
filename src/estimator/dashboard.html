@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>oute-mind | Service Dashboard</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --border: #2a2d3a;
+    --text: #e1e4ed;
+    --muted: #8b8fa3;
+    --green: #22c55e;
+    --green-bg: #052e16;
+    --red: #ef4444;
+    --red-bg: #350a0a;
+    --blue: #3b82f6;
+    --blue-bg: #0c1a3d;
+    --yellow: #eab308;
+    --yellow-bg: #332800;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'SF Mono', 'Cascadia Code', 'Fira Code', monospace;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px;
+    min-height: 100vh;
+  }
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header h1 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+  }
+
+  .header h1 span { color: var(--muted); font-weight: 400; }
+
+  .controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+  }
+
+  .status-pill {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .status-pill.healthy { background: var(--green-bg); color: var(--green); }
+  .status-pill.degraded { background: var(--yellow-bg); color: var(--yellow); }
+  .status-pill.error { background: var(--red-bg); color: var(--red); }
+  .status-pill.checking { background: var(--blue-bg); color: var(--blue); }
+
+  .btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn:hover { background: var(--border); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn.primary { background: var(--blue); border-color: var(--blue); color: white; }
+  .btn.primary:hover { opacity: 0.9; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+  }
+
+  .card.ok { border-left: 3px solid var(--green); }
+  .card.error { border-left: 3px solid var(--red); }
+  .card.checking { border-left: 3px solid var(--blue); }
+
+  .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+  }
+
+  .card-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .card-title h3 {
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .card-title .tag {
+    font-size: 11px;
+    color: var(--muted);
+    background: var(--bg);
+    padding: 2px 8px;
+    border-radius: 4px;
+  }
+
+  .indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .indicator.ok { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .indicator.error { background: var(--red); box-shadow: 0 0 8px var(--red); }
+  .indicator.checking { background: var(--blue); animation: pulse 1.5s infinite; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .card-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-status .label {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .card-status .label.ok { color: var(--green); }
+  .card-status .label.error { color: var(--red); }
+  .card-status .label.checking { color: var(--blue); }
+
+  .latency {
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .card-detail {
+    padding: 0 16px 12px;
+    font-size: 12px;
+    color: var(--muted);
+    word-break: break-all;
+  }
+
+  .card-log {
+    border-top: 1px solid var(--border);
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+  }
+
+  .card-log.open {
+    max-height: 300px;
+  }
+
+  .card-log pre {
+    padding: 12px 16px;
+    font-size: 11px;
+    color: var(--muted);
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 280px;
+    overflow-y: auto;
+    background: var(--bg);
+    margin: 0;
+  }
+
+  .card-actions {
+    padding: 8px 16px 12px;
+    display: flex;
+    gap: 8px;
+  }
+
+  .card-actions .btn {
+    font-size: 11px;
+    padding: 4px 10px;
+  }
+
+  .footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 12px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  .footer span { color: var(--text); }
+
+  .timer {
+    font-size: 12px;
+    color: var(--muted);
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>oute-mind <span>service dashboard</span></h1>
+  <div class="controls">
+    <span class="timer" id="timer"></span>
+    <span class="status-pill checking" id="global-status">CHECKING</span>
+    <button class="btn primary" id="run-btn" onclick="runChecks()">Run All Checks</button>
+  </div>
+</div>
+
+<div class="grid" id="grid"></div>
+
+<div class="footer">
+  <span>Estimator MVP1</span> &middot; CrewAI v1.10.1 &middot; Gemini 1.5 Flash
+</div>
+
+<script>
+const SERVICES = [
+  { key: "postgresql",  name: "PostgreSQL",    tag: "v16",       desc: "Relational DB + JSONB" },
+  { key: "redis",       name: "Redis",         tag: "v7",        desc: "Cache / Queue" },
+  { key: "qdrant",      name: "Qdrant",        tag: "latest",    desc: "Vector Database" },
+  { key: "mindsdb",     name: "MindsDB",       tag: "latest",    desc: "Memory System" },
+  { key: "jina_reader", name: "Jina Reader",   tag: "local",     desc: "Web Scraping" },
+  { key: "gemini",      name: "Google Gemini",  tag: "1.5 Flash", desc: "LLM Provider" },
+  { key: "crewai",      name: "CrewAI",        tag: "v1.10.1",   desc: "Agent Orchestration" },
+];
+
+let results = {};
+
+function renderCards() {
+  const grid = document.getElementById("grid");
+  grid.innerHTML = SERVICES.map(svc => {
+    const r = results[svc.key];
+    const status = r ? r.status : "checking";
+    const label = status === "ok" ? "OK" : status === "error" ? "NOK" : "...";
+    const latency = r && r.latency_ms ? `${r.latency_ms}ms` : "";
+    const detail = r ? (typeof r.detail === "object" ? JSON.stringify(r.detail) : r.detail) : "";
+    const logContent = r ? JSON.stringify(r, null, 2) : "Waiting...";
+
+    return `
+      <div class="card ${status}" id="card-${svc.key}">
+        <div class="card-header">
+          <div class="card-title">
+            <div class="indicator ${status}"></div>
+            <div>
+              <h3>${svc.name}</h3>
+              <span class="tag">${svc.tag}</span>
+            </div>
+          </div>
+          <div class="card-status">
+            ${latency ? `<span class="latency">${latency}</span>` : ""}
+            <span class="label ${status}">${label}</span>
+          </div>
+        </div>
+        <div class="card-detail">${svc.desc}${detail ? " — " + escapeHtml(String(detail)) : ""}</div>
+        <div class="card-actions">
+          <button class="btn" onclick="toggleLog('${svc.key}')">View Log</button>
+          <button class="btn" onclick="recheck('${svc.key}')">Recheck</button>
+        </div>
+        <div class="card-log" id="log-${svc.key}">
+          <pre>${escapeHtml(logContent)}</pre>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+function escapeHtml(str) {
+  const d = document.createElement("div");
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+function toggleLog(key) {
+  const el = document.getElementById(`log-${key}`);
+  el.classList.toggle("open");
+}
+
+function updateGlobalStatus() {
+  const el = document.getElementById("global-status");
+  const values = Object.values(results);
+
+  if (values.length < SERVICES.length) {
+    el.className = "status-pill checking";
+    el.textContent = "CHECKING";
+  } else if (values.every(r => r.status === "ok")) {
+    el.className = "status-pill healthy";
+    el.textContent = "ALL HEALTHY";
+  } else if (values.some(r => r.status === "ok")) {
+    el.className = "status-pill degraded";
+    el.textContent = "DEGRADED";
+  } else {
+    el.className = "status-pill error";
+    el.textContent = "ALL DOWN";
+  }
+}
+
+async function runChecks() {
+  const btn = document.getElementById("run-btn");
+  btn.disabled = true;
+  btn.textContent = "Checking...";
+  results = {};
+  renderCards();
+  updateGlobalStatus();
+
+  const startTime = performance.now();
+
+  try {
+    const resp = await fetch("/health/services");
+    const data = await resp.json();
+
+    for (const svc of data.services) {
+      results[svc.service] = svc;
+    }
+  } catch (e) {
+    for (const svc of SERVICES) {
+      if (!results[svc.key]) {
+        results[svc.key] = { service: svc.key, status: "error", detail: `API unreachable: ${e.message}` };
+      }
+    }
+  }
+
+  const elapsed = Math.round(performance.now() - startTime);
+  document.getElementById("timer").textContent = `Last check: ${new Date().toLocaleTimeString()} (${elapsed}ms)`;
+
+  renderCards();
+  updateGlobalStatus();
+  btn.disabled = false;
+  btn.textContent = "Run All Checks";
+}
+
+async function recheck(key) {
+  results[key] = undefined;
+  renderCards();
+
+  try {
+    const resp = await fetch("/health/services");
+    const data = await resp.json();
+    const svc = data.services.find(s => s.service === key);
+    if (svc) results[key] = svc;
+  } catch (e) {
+    results[key] = { service: key, status: "error", detail: `API unreachable: ${e.message}` };
+  }
+
+  renderCards();
+  updateGlobalStatus();
+}
+
+// Initial render and auto-check
+renderCards();
+runChecks();
+</script>
+
+</body>
+</html>
