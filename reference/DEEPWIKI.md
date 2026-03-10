@@ -1,328 +1,410 @@
-# 📚 oute-mind Technical Deep Wiki
+# oute-mind — Technical Deep Wiki
 
-**Complete technical documentation of oute-mind software project estimation system**
-
----
-
-## 🎯 Project Overview
-
-**oute-mind** is a CrewAI-powered multi-agent system that provides comprehensive software project estimations by analyzing requirements through a 6-agent sequential pipeline. The system uses advanced RAG (Retrieval-Augmented Generation), vector databases, and financial modeling to generate three distinct cost scenarios (human-only, AI-only, hybrid) with detailed risk assessments.
-
-The system is designed for:
-- **Software Development Companies** - Accurate project bidding and resource planning
-- **Consultancies** - Professional estimation reports for clients
-- **Enterprise IT** - Internal project cost forecasting and scenario modeling
+> Internal technical reference for the oute-mind software estimation system.
+> For setup instructions, see [README.md](../README.md).
 
 ---
 
-## 🔬 Core Technologies
+## System Overview
 
-| Component | Technology | Version | Purpose |
-|-----------|-----------|---------|---------|
-| **Orchestration** | CrewAI | v1.10.1 | Multi-agent framework with task management |
-| **LLM** | Google Gemini | 1.5 Flash | Multimodal AI processing (text, images, audio, video) |
-| **Vector Database** | Qdrant | Latest | RAG indexing + semantic search for knowledge base |
-| **Relational DB** | PostgreSQL | v16 | Project data, estimation history, framework patterns (JSONB) |
-| **Memory System** | MindsDB | Latest | Agent synchronization and state management |
-| **Cache/Queue** | Redis | v7 | Session caching, async task queuing |
-| **Web Scraping** | Jina Reader | Cloud API | Documentation extraction (r.jina.ai) |
-| **API** | FastAPI | Latest | REST endpoints with async support |
-| **Reverse Proxy** | Caddy | Latest | HTTP/2, auto TLS, load balancing |
-| **Containers** | Docker + Compose | v2+ | Multi-arch deployment (ARM + Intel) |
-| **Monitoring** | Prometheus + Grafana | Latest | Metrics collection and visualization |
-| **CI/CD** | GitHub Actions | - | Automated testing and deployment |
-| **Infrastructure** | GCP Compute Engine | - | Cloud hosting (t2a ARM VMs) |
+oute-mind is a **CrewAI-powered multi-agent system** that generates software project estimations. It processes requirements through a 6-agent sequential pipeline and produces three cost scenarios: human-only, AI-assisted, and hybrid.
 
----
+**Target users**: software companies, consultancies, enterprise IT teams needing accurate project cost forecasting.
 
-## 🏗️ Arquitetura do Sistema (MVP1)
-
-O **Estimator** opera em um processo **Sequencial** de 5 fases, com um agente de memória (Agente 6) atuando em paralelo na fase final.
-
-### Fluxo de Dados (MVP1 Pipeline)
-```mermaid
-graph TD
-    A[Trigger API/Fila] --> B[1. Discovery Multi-modal]
-    B --> C{Aprovação Cliente}
-    C --> D[2. Análise RAG & Jina.ai]
-    D --> E[3. Design & Janela Postgres]
-    E --> F[4. Cenários Financeiros]
-    F --> G[5. Review & Aceite Final]
-    G --> H[6. Enriquecimento de Base - Paralelo]
+**Core flow**:
+```
+Client Request → 6-Agent Pipeline (90-130s) → 3 Cost Scenarios + Risks + Architecture
 ```
 
 ---
 
-## 🤖 Os Agentes (MVP1 Crew)
+## Architecture
 
-### 1. Software Architecture Interviewer
-- **Especialidade**: Solution Architect.
-- **Missão**: Entrevista multi-modal (Texto, Imagem, Som, Vídeo) via checklists Postgres.
-- **Ferramentas**: `Gemini 2.5 (Nativo)`, `FileRead`, `OCR`, `MindsDB`, `ScrapeWebsite`.
+### System Topology
 
-### 2. Technical Research Analyst
-- **Especialidade**: Especialista em Recuperação Documental & Discovery.
-- **Missão**: Validação via RAG Multi-tenant e histórico no **Postgres (JSONB)**. Utiliza o **Jina.ai Reader** para leitura otimizada de documentações oficiais na web.
-- **Ferramentas**: `Qdrant`, `Serper (Search)`, `Jina Reader`, `MindsDB`.
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     GCP Compute Engine                              │
+│                     t2a-standard-4 (ARM64)                          │
+│                     16GB RAM · 4 vCPU                               │
+│                                                                     │
+│  ┌──────────┐   ┌──────────────────────────────────────────────┐   │
+│  │  Caddy   │──▶│           FastAPI Application                │   │
+│  │  :80     │   │           (estimator.api)                    │   │
+│  └──────────┘   │                                              │   │
+│                 │  CrewAI Orchestrator                          │   │
+│                 │  ┌────────────────────────────────────────┐   │   │
+│                 │  │ Agent 1 ──▶ [approval] ──▶ Agent 2     │   │   │
+│                 │  │ Agent 2 ──▶ Agent 3 ──▶ Agent 4       │   │   │
+│                 │  │ Agent 4 ──▶ Agent 5 ──▶ Agent 6       │   │   │
+│                 │  └────────────────────────────────────────┘   │   │
+│                 └──────────┬──────────┬──────────┬──────────┘   │
+│                            │          │          │              │
+│                 ┌──────────▼──┐  ┌────▼────┐  ┌─▼──────────┐  │
+│                 │ PostgreSQL  │  │  Redis   │  │   Qdrant   │  │
+│                 │ 16 (JSONB)  │  │  7-alpine│  │  (vector)  │  │
+│                 │ :5432       │  │  :6379   │  │  :6333     │  │
+│                 └─────────────┘  └─────────┘  └────────────┘  │
+│                                                                │
+│                 ┌─────────────┐  ┌───────────┐  ┌──────────┐  │
+│                 │  MindsDB    │  │Prometheus │  │ Grafana  │  │
+│                 │  :47334     │  │  :9090    │  │ :3080    │  │
+│                 └─────────────┘  └───────────┘  └──────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+                            │
+              External APIs │
+              ──────────────┤
+              Gemini 2.5    │ generativelanguage.googleapis.com
+              Jina Reader   │ r.jina.ai (cloud API)
+              Serper        │ google.serper.dev
+```
 
-### 3. Software Architect
-- **Especialidade**: Designer & Consolidador.
-- **Missão**: Transforma RAG e Discovery em design final. Persiste tudo no Postgres para relatórios.
+### Container Map
 
-### 4. Cost Optimization Specialist
-- **Especialidade**: FinOps.
-- **Missão**: Gera 3 cenários (Humano, IA, Híbrido) e análise de riscos.
-
-### 5. Reviewer & Presenter
-- **Especialidade**: Conciliador Técnico-Funcional.
-- **Missão**: Apresentação final e feedback loop de aceite.
-
-### 6. Knowledge Management Specialist
-- **Especialidade**: Guardião da Memória Institucional.
-- **Missão**: Executa em paralelo com a fase 5 para garantir que o resultado final seja indexado no Qdrant para futuros RAGs.
+| Container        | Image                 | Port  | Purpose                        |
+|------------------|-----------------------|-------|--------------------------------|
+| `oute-app`       | oute-mind-app (local) | 8000  | FastAPI + CrewAI pipeline      |
+| `oute-postgres`  | postgres:16-alpine    | 5432  | Relational + JSONB storage     |
+| `oute-redis`     | redis:7-alpine        | 6379  | Async job state (TTL 24h)      |
+| `oute-qdrant`    | qdrant/qdrant:latest  | 6333  | Vector search / RAG            |
+| `oute-mindsdb`   | mindsdb/mindsdb       | 47334 | Agent context synchronization  |
+| `oute-caddy`     | caddy:latest          | 80    | Reverse proxy                  |
+| `oute-prometheus` | prom/prometheus       | 9090  | Metrics collection             |
+| `oute-grafana`   | grafana/grafana       | 3080  | Monitoring dashboards          |
 
 ---
 
-## 🛠️ Stack Tecnológica (MVP1)
+## Agent Pipeline (Detail)
 
-| Componente | Tecnologia | Papel |
-| :--- | :--- | :--- |
-| **Orquestração** | CrewAI v1.10.1 | Fluxo de Agentes |
-| **LLM / Mídias** | **Gemini 2.5 Flash-Lite** | Processamento de Texto, Áudio e Vídeo |
-| **Relational & NoSQL**| **PostgreSQL (JSONB)** | Checklists, Histórico e Padrões (Subst. Firebase) |
-| **Web Reading** | **Jina.ai Reader** | Leitura de Docs Oficiais para o Analista |
-| **Vector DB** | Qdrant | Memória RAG (Team/User/Project) |
-| **Vector DB** | Qdrant | Memória RAG (Team/User/Project) |
-| **AI Memory** | MindsDB (AIMindTool) | Sincronismo entre agentes |
-| **API Trigger** | FastAPI + Redis/Queue | Orquestração de entrada |
+### Execution Model
+
+All agents use **CrewAI sequential process**. Each agent receives the output of all previous agents as context.
+
+```
+Agent 1 (Discovery)
+    │
+    ▼
+[Client Approval Gate]     ← human_input=True
+    │
+    ▼
+Agent 2 (Research)
+    │
+    ▼
+Agent 3 (Architecture)
+    │
+    ▼
+Agent 4 (Cost Modeling)
+    │
+    ▼
+Agent 5 (Review)           ← human_input=True
+    │
+    ▼
+Agent 6 (Knowledge)
+```
+
+### Agent Specifications
+
+#### Agent 1 — Solution Architect (Interviewer)
+
+**Mission**: Multi-modal discovery interview. Extracts requirements from text, audio, video, images, and documents via Gemini's native multi-modal capabilities.
+
+**Tools**:
+| Tool              | Source     | Purpose                                  |
+|-------------------|------------|------------------------------------------|
+| FileReadTool      | crewai     | Read uploaded files                      |
+| OCRTool           | crewai     | Extract text from images/PDFs            |
+| ScrapeWebsiteTool | crewai     | Scrape reference URLs                    |
+| GetChecklistTool  | custom     | Load discovery checklist from PostgreSQL |
+| SaveEstimationTool| custom     | Persist findings to PostgreSQL           |
+| StoreContextTool  | custom     | Share context with next agents           |
+
+**Output**: `discovery_findings` JSON with functional requirements, non-functional requirements, constraints, and assumptions.
+
+#### Agent 2 — Technical Research Analyst
+
+**Mission**: Validate discoveries against RAG knowledge base and live web research. Uses Jina Reader (cloud API at r.jina.ai) for reading official documentation.
+
+**Tools**:
+| Tool                     | Source  | Purpose                              |
+|--------------------------|---------|--------------------------------------|
+| QdrantVectorSearchTool   | crewai  | Semantic search in knowledge base    |
+| SerperDevTool            | crewai  | Google search for tech validation    |
+| JinaReaderTool           | custom  | Read web docs as clean markdown      |
+| SearchEstimationHistory  | custom  | Query past estimations               |
+| SearchPatternsTool       | custom  | Find similar project patterns        |
+| RetrieveContextTool      | custom  | Get Agent 1's discoveries            |
+
+**Output**: `research_findings` JSON with validated technologies, risks, and reference documentation.
+
+#### Agent 3 — Software Architect (Designer)
+
+**Mission**: Consolidate discovery and research into a formal architecture design. Persist the design blueprint to PostgreSQL.
+
+**Tools**: QdrantVectorSearchTool, SearchPatternsTool, SaveEstimationTool, StoreContextTool, RetrieveContextTool
+
+**Output**: `design_blueprint` JSON with components, integrations, data model, and deployment strategy.
+
+#### Agent 4 — Cost Optimization Specialist (FinOps)
+
+**Mission**: Generate three financial scenarios with risk-adjusted estimates.
+
+**Scenarios**:
+1. **Human-Only**: Traditional development team
+2. **AI-Assisted**: Hybrid team with AI tools (Copilot, code gen)
+3. **Full AI**: Maximum AI automation with minimal human oversight
+
+**Tools**: ScrapeWebsiteTool, SaveFinancialScenarioTool, RetrieveContextTool
+
+**Output**: `financial_scenarios` JSON with cost breakdown, timeline, team composition, and confidence intervals.
+
+#### Agent 5 — Reviewer & Presenter
+
+**Mission**: Cross-validate all outputs, generate client-facing summary, and manage approval feedback loop.
+
+**Tools**: QdrantVectorSearchTool, SerperDevTool, SearchEstimationHistoryTool, RetrieveContextTool
+
+**Output**: Final estimation report with executive summary and recommendation.
+
+#### Agent 6 — Knowledge Management Specialist
+
+**Mission**: Index the completed estimation into the knowledge base for future RAG retrieval. Runs as the final step to enrich the system's memory.
+
+**Tools**: QdrantVectorSearchTool, SaveEstimationTool, StoreContextTool
+
+**Output**: `knowledge_enrichment` confirmation with indexed document IDs.
 
 ---
 
-## ⚡ Gatilhos & Orquestração (Trigger Mechanism)
+## Custom Tools
 
-O sistema foi desenhado para ser resiliente e escalável, utilizando uma arquitetura orientada a eventos para o disparo da Crew.
+### PostgreSQL Tools (`tools/postgres_tool.py`)
 
-1.  **FastAPI Entrypoint**: O frontend envia uma requisição para o endpoint `/kickoff`.
-2.  **Redis Queue**: A tarefa é enfileirada no Redis para processamento asíncrono.
-3.  **Processamento Background**: Um worker especializado (ex: Celery ou RQ) instasia a Crew e inicia a execução.
-4.  **Webhooks/Status**: O progresso é persistido no Postgres, permitindo que o frontend consulte o status em tempo real via `/status/{id}`.
+| Tool                        | Operation                                    |
+|-----------------------------|----------------------------------------------|
+| `GetChecklistTool`          | Load discovery checklist by category         |
+| `SearchEstimationHistoryTool` | Query past estimations with filters        |
+| `SearchPatternsTool`        | Find technology/architecture patterns        |
+| `SaveEstimationTool`        | Insert estimation findings                   |
+| `SaveFinancialScenarioTool` | Insert cost scenario data                    |
 
-### 🎥 Processamento Multi-modal (Gemini 2.5 Flash-Lite)
+Connection: `psycopg2` via env vars `POSTGRES_HOST`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`.
 
-O **Agente 1 (Solution Architect)** utiliza as capacidades nativas do Gemini 2.5 para processar:
-*   **Imagens**: Diagramas de arquitetura, fluxogramas em guardanapo ou prints de sistemas legados.
-*   **Áudio**: Gravações de reuniões de discovery ou áudios de WhatsApp/Telegram com requisitos.
-*   **Vídeo**: Walkthroughs de sistemas atuais ou explicações gravadas de fluxos de negócio.
-*   **Documentos**: PDFs, DOCX e Planilhas complexas.
+### Jina Reader Tool (`tools/jina_reader_tool.py`)
 
----
+Cloud-only implementation using `https://r.jina.ai/{url}`. Returns web pages as clean markdown. Truncates at 15,000 characters to stay within LLM context limits.
 
-## � Infraestrutura & Deployment (POC)
+### MindsDB Tools (`tools/mindsdb_tool.py`)
 
-Para a fase de POC, toda a stack de **Staging** e **Produção** será instalada em uma **VM Dedicada** (On-premises ou Cloud VM), permitindo controle total das ferramentas.
+| Tool                 | Operation                                      |
+|----------------------|------------------------------------------------|
+| `StoreContextTool`   | Store agent output for downstream agents       |
+| `RetrieveContextTool`| Retrieve upstream agent context                |
 
-### Arquitetura de Hosting (Self-hosted)
-Utilizaremos **Docker Compose** para orquestrar todos os serviços localmente na VM, garantindo portabilidade e facilidade de manutenção:
-*   **PostgreSQL**: Base de dados única para Relacional e Documental (JSONB).
-*   **MindsDB**: Servidor de IA local para sincronismo e memória.
-*   **Qdrant**: Engine de busca vetorial local.
-*   **Redis**: Sistema de gerenciamento de filas para a API.
-*   **Jina Reader**: Cloud API (r.jina.ai) para leitura otimizada de documentação web.
-
-### Acesso Externo
-*   **Gemini 2.5 Flash-Lite**: O processamento de LLM e multi-modalidade será feito via **API na Internet** (Google Cloud AI Services). Esta é a única saída de rede necessária para o funcionamento da inteligência central.
+Connection: MindsDB SQL API via HTTP at `MINDSDB_HOST:MINDSDB_PORT`.
 
 ---
 
-## 🔌 API Endpoints & Integration Points
+## API Reference
 
-### Health Check Endpoint
-```
-GET /health
-Response: {"status": "healthy", "service": "software-estimator"}
-```
+### Async Estimation Flow
 
-### Status Endpoint
 ```
-GET /api/status
-Response: {"status": "running", "version": "1.0.0", "crew_status": "ready"}
+POST /run                         → {estimation_id, status: "queued"}
+GET  /status/{estimation_id}      → {status: "running", progress: "agent_2"}
+POST /approve/{estimation_id}     → {status: "approved"} (after Agent 1)
+GET  /status/{estimation_id}      → {status: "completed", result: {...}}
 ```
 
-### Estimation Endpoint (Main)
-```
-POST /estimate
-Request: {"estimation_id": "proj-001", "project_details": "..."}
-Response: {"estimation_id": "proj-001", "result": "...", "status": "success"}
-```
+### All Endpoints
 
----
+| Method | Path                      | Response       | Description                    |
+|--------|---------------------------|----------------|--------------------------------|
+| GET    | `/health`                 | JSON           | `{"status": "healthy"}`        |
+| GET    | `/health/services`        | JSON           | 7 services with latency        |
+| GET    | `/healthcheck`            | HTML           | Visual dashboard               |
+| GET    | `/api/status`             | JSON           | Version + crew readiness       |
+| GET    | `/`                       | JSON           | Available endpoints            |
+| POST   | `/run`                    | JSON           | Start async estimation         |
+| GET    | `/status/{id}`            | JSON           | Poll estimation status         |
+| POST   | `/approve/{id}`           | JSON           | Approve Agent 1 scope          |
+| POST   | `/estimate`               | JSON           | Synchronous estimation         |
+| GET    | `/docs`                   | HTML           | Swagger UI (auto)              |
 
-## ⚙️ Configuration Reference
+### Health Services Response
 
-### LLM Settings
-```bash
-MODEL=google/gemini-2.5-flash-lite      # LLM model
-LLM_TEMPERATURE=0.7                # Creativity level (0.0-1.0)
-```
-
-### Database Connections
-```bash
-POSTGRES_HOST=postgres
-POSTGRES_USER=oute_prod_user
-REDIS_HOST=redis
-QDRANT_HOST=qdrant
-MINDSDB_HOST=mindsdb
-```
-
-### API Keys
-```bash
-GOOGLE_API_KEY=sk-...              # Required
-SERPER_API_KEY=...                 # Optional (web search)
-COMPOSIO_API_KEY=...               # Optional (integrations)
-OPENAI_API_KEY=...                 # Required by CrewAI/LiteLLM
+```json
+{
+  "status": "healthy",
+  "services": [
+    {"service": "postgresql",  "status": "ok", "latency_ms": 14, "detail": "4 tables in estimator schema"},
+    {"service": "redis",       "status": "ok", "latency_ms": 3},
+    {"service": "qdrant",      "status": "ok", "latency_ms": 2},
+    {"service": "mindsdb",     "status": "ok", "latency_ms": 4},
+    {"service": "jina_reader", "status": "ok", "latency_ms": 140, "detail": "cloud API"},
+    {"service": "gemini",      "status": "ok", "latency_ms": 207},
+    {"service": "crewai",      "status": "ok", "latency_ms": 0, "detail": "6 agents, 6 tasks"}
+  ]
+}
 ```
 
 ---
 
-## 📊 Data Flow Pipeline
+## Data Model
 
-### Request Processing
-```
-1. Client POST /estimate
-2. FastAPI validates schema
-3. Crew initialization (lazy load)
-4. Sequential agent execution (1-5)
-5. Parallel knowledge enrichment (6)
-6. Result serialized to JSON
-7. Data persisted in PostgreSQL
+### PostgreSQL Schema (`estimator`)
+
+```sql
+estimation_requests (
+    id SERIAL PRIMARY KEY,
+    estimation_id VARCHAR(255) UNIQUE,
+    project_details TEXT,
+    status VARCHAR(50),
+    created_at TIMESTAMP DEFAULT NOW()
+)
+
+estimation_findings (
+    id SERIAL PRIMARY KEY,
+    estimation_id VARCHAR(255) REFERENCES estimation_requests(estimation_id),
+    agent_name VARCHAR(100),
+    findings JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
+)
+
+estimation_costs (
+    id SERIAL PRIMARY KEY,
+    estimation_id VARCHAR(255) REFERENCES estimation_requests(estimation_id),
+    scenario_type VARCHAR(50),   -- 'human', 'ai', 'hybrid'
+    cost_breakdown JSONB,
+    total_cost DECIMAL(12,2),
+    timeline_weeks INTEGER,
+    confidence_level DECIMAL(3,2),
+    created_at TIMESTAMP DEFAULT NOW()
+)
+
+estimation_risks (
+    id SERIAL PRIMARY KEY,
+    estimation_id VARCHAR(255) REFERENCES estimation_requests(estimation_id),
+    risk_category VARCHAR(100),
+    description TEXT,
+    probability DECIMAL(3,2),
+    impact VARCHAR(20),
+    mitigation TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+)
 ```
 
-### Data Storage
-```
-PostgreSQL:
-├── estimation_requests
-├── estimation_findings
-├── estimation_costs (3 scenarios)
-├── estimation_risks
-└── historical_patterns
+### Qdrant Collections
 
-Qdrant:
-├── project_patterns
-├── technical_patterns
-├── cost_history
-└── knowledge_base
-```
+| Collection           | Purpose                          | Embedding     |
+|----------------------|----------------------------------|---------------|
+| `knowledge_base`     | General technical knowledge      | Gemini        |
+| `project_patterns`   | Past project architectures       | Gemini        |
+| `technical_patterns` | Technology combinations          | Gemini        |
+| `cost_history`       | Historical cost data             | Gemini        |
 
 ---
 
-## 🚀 Performance Benchmarks
+## Infrastructure
 
-### Expected Times
-- Discovery Agent: 30s
-- Research Agent: 40s
-- Architecture Agent: 25s
-- Cost Agent: 15s
-- Review Agent: 20s
-- Knowledge Agent: 30s (parallel)
-- **Total**: 90-130 seconds
+### GCP Setup
 
-### Memory Usage (16GB total)
+| Resource          | Spec                             |
+|-------------------|----------------------------------|
+| VM                | t2a-standard-4 (ARM64)           |
+| CPU               | 4 vCPU (Ampere Altra)            |
+| RAM               | 16 GB                            |
+| Disk              | 50 GB SSD                        |
+| OS                | Ubuntu 22.04 LTS                 |
+| Region            | us-central1-a                    |
+| Static IP         | oute-mind-ip                     |
+| Est. cost         | ~$120/month                      |
+
+### Memory Budget (16GB)
+
 ```
-FastAPI: ~1GB
-PostgreSQL: ~3GB
-Redis: ~500MB
-Qdrant: ~2GB
-MindsDB: ~1GB
-Jina Reader: ~2GB
-System: ~2GB
-Buffer: ~3.5GB
+FastAPI + CrewAI:  ~1.0 GB
+PostgreSQL:        ~3.0 GB
+Redis:             ~0.5 GB
+Qdrant:            ~2.0 GB
+MindsDB:           ~1.0 GB
+Prometheus:        ~0.5 GB
+Grafana:           ~0.5 GB
+Caddy:             ~0.1 GB
+System (OS):       ~2.0 GB
+Buffer:            ~5.4 GB
 ```
-
-### Capacity
-- Current: ~5-10 concurrent estimations
-- Bottleneck: Google Gemini API rate limits
-- Max payload: 10MB
-
----
-
-## 🔐 Security Architecture
 
 ### Network Security
+
+| Port | Service     | Access              |
+|------|-------------|---------------------|
+| 22   | SSH         | IP whitelist only   |
+| 80   | HTTP (Caddy)| Public              |
+| 443  | HTTPS       | Public (auto TLS)   |
+| 5432 | PostgreSQL  | Internal only       |
+| 6333 | Qdrant      | Internal only       |
+| 6379 | Redis       | Internal only       |
+| 47334| MindsDB     | Internal only       |
+
+### CI/CD
+
+GitHub Actions workflow (`.github/workflows/deploy-to-gcp.yml`):
+
 ```
-SSH (22): Restricted IP whitelist
-HTTP (80): Public (via Caddy)
-HTTPS (443): Public (auto TLS)
-Databases: Internal only (no expose)
+Push to main → SSH to VM → git pull → docker compose build → docker compose up -d → health check
 ```
 
-### Data Protection
-```
-- Secrets: GitHub Secrets (never in code)
-- Passwords: Auto-generated, 32 chars
-- SSH Keys: Ed25519 format
-- Data: TLS 1.3 in transit
-```
+Secrets stored in GitHub: `GCP_VM_SSH_PRIVATE_KEY`, `GCP_VM_HOSTNAME`, `GCP_VM_USER`, `GOOGLE_API_KEY`, and database credentials.
 
 ---
 
-## 🐛 Troubleshooting
+## Performance
+
+### Expected Latencies
+
+| Agent              | Time  |
+|--------------------|-------|
+| 1. Discovery       | ~30s  |
+| 2. Research        | ~40s  |
+| 3. Architecture    | ~25s  |
+| 4. Cost            | ~15s  |
+| 5. Review          | ~20s  |
+| 6. Knowledge       | ~30s  |
+| **Total Pipeline** | **90-130s** |
+
+### Capacity
+
+- Concurrent estimations: 5-10
+- Bottleneck: Gemini API rate limits (RPM)
+- Max request payload: 10MB
+
+---
+
+## Troubleshooting
+
+### Logs
+
+```bash
+docker compose logs app        # FastAPI + CrewAI
+docker compose logs postgres   # Database
+docker compose logs qdrant     # Vector DB
+docker compose logs mindsdb    # Memory system
+docker compose logs caddy      # Reverse proxy
+```
 
 ### Common Issues
 
-**OPENAI_API_KEY Error**
-→ Set OPENAI_API_KEY in .env before container starts
-
-**504 Timeout**
-→ Increase FASTAPI_TIMEOUT in docker-compose.yml
-
-**Out of Memory**
-→ Check `docker stats` and increase Docker memory limit
-
-**Qdrant Connection Refused**
-→ Verify it's running: `docker-compose logs qdrant`
-
-**PostgreSQL Permission Denied**
-→ Check credentials in .env.production match docker-compose.yml
+| Symptom                          | Cause                            | Fix                                      |
+|----------------------------------|----------------------------------|------------------------------------------|
+| `OPENAI_API_KEY` error           | CrewAI/LiteLLM requires it       | Set any `sk-proj-...` value in `.env`    |
+| Gemini 404 on health check       | Wrong model in `MODEL` env var   | Use `google/gemini-2.5-flash-lite`       |
+| `QdrantConfig` validation error  | Missing qdrant_config in crew.py | Ensure QDRANT_URL and QDRANT_API_KEY set |
+| `google-genai` not available     | Missing pip extra                | `crewai[google-genai]` in pyproject.toml |
+| OOM kills                        | Under 16GB RAM                   | Check `docker stats`, increase VM size   |
+| 504 gateway timeout              | Gemini rate limit or slow agent  | Check Caddy timeout + Gemini quotas      |
 
 ---
 
-## 📈 Monitoring
-
-### Key Metrics
-```
-Application:
-- /estimate endpoint latency (p50, p95, p99)
-- Success rate (%)
-- Average execution time per agent
-
-Infrastructure:
-- CPU utilization (target: 70%)
-- Memory utilization (target: 75%)
-- Disk I/O
-- Network I/O (Gemini API calls)
-```
-
-### Log Access
-```bash
-docker-compose logs app           # FastAPI
-docker-compose logs postgres      # Database
-docker-compose logs qdrant        # Vector DB
-docker-compose logs mindsdb       # Memory system
-```
-
----
-
-## 📚 Resources
-
-- **CrewAI**: https://docs.crewai.com
-- **Google Gemini**: https://ai.google.dev
-- **Qdrant**: https://qdrant.tech
-- **PostgreSQL**: https://www.postgresql.org/docs
-- **FastAPI**: https://fastapi.tiangolo.com
-
----
-
-**Version**: 1.0.0 (March 2026)
+**Version**: 1.1.0
 **Maintained by**: Renato Bardi
-**Last Updated**: 2026-03-10
-
+**Last updated**: 2026-03-10

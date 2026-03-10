@@ -1,41 +1,44 @@
-## 🏗️ Sobre o Estimator
+# Project Overview
 
-O **Estimator** é um sistema de multi-agentes (CrewAI) especializado em gerar orçamentos e especificações técnicas de alta fidelidade para projetos de software. Ele utiliza **RAG Multi-tenant** no Qdrant e processamento **Multi-modal** nativo do Gemini 2.5 Flash-Lite para entender requisitos vindo de textos, áudios, imagens e vídeos.
+> oute-mind is a CrewAI multi-agent system that generates software project estimations with three cost scenarios (human, AI, hybrid).
 
----
+## How it works
 
-## 👥 Agentes do Sistema
+1. Client sends a project description via `POST /run`
+2. Six AI agents process the request sequentially (90-130 seconds)
+3. System returns a complete estimation with costs, risks, and architecture
 
-O projeto conta com 6 agentes especializados configurados em `src/estimator/config/agents.yaml`:
-1.  **Solution Architect (Interviewer)**: Descoberta e checklists relacional.
-2.  **Technical Analyst (RAG)**: Pesquisa histórica e validação web (Jina.ai).
-3.  **Software Architect (Designer)**: Design técnico e persistência Postgres.
-4.  **Cost Specialist (FinOps)**: Cenários financeiros e otimização.
-5.  **Reviewer & Presenter**: Revisão funcional e loop de aceite.
-6.  **Knowledge Specialist**: Memória de longo prazo (Paralelo).
+## Agents
 
----
+| #  | Agent                | What it does                                               |
+|----|----------------------|------------------------------------------------------------|
+| 1  | Solution Architect   | Multi-modal discovery (text, audio, video, images)         |
+| 2  | Technical Analyst    | RAG validation + web research (Jina Reader, Serper)        |
+| 3  | Software Architect   | Consolidates into formal architecture design               |
+| 4  | Cost Specialist      | Three financial scenarios: human / AI / hybrid             |
+| 5  | Reviewer             | Cross-validation + client-facing summary                   |
+| 6  | Knowledge Manager    | Indexes results into Qdrant for future estimations         |
 
-## 🚀 Como Executar
+## Stack
 
-O projeto utiliza `uv` para gestão de dependências.
+- **LLM**: Google Gemini 2.5 Flash-Lite (via LiteLLM)
+- **Orchestration**: CrewAI v1.10.1
+- **Database**: PostgreSQL 16 (JSONB) — estimations, patterns, history
+- **Vector DB**: Qdrant — RAG semantic search
+- **Cache**: Redis 7 — async job state
+- **Memory**: MindsDB — agent context sync
+- **Web Reader**: Jina Reader cloud API (r.jina.ai)
+- **API**: FastAPI + Uvicorn
+- **Proxy**: Caddy (HTTP/HTTPS)
+- **Infra**: GCP Compute Engine (t2a-standard-4, ARM64, 16GB)
 
-1.  **Instalação**:
-    ```bash
-    uv sync
-    ```
-2.  **Configuração**: Adicione suas chaves no `.env` (GEMINI_API_KEY, SERPER_API_KEY, etc).
-3.  **Execução**:
-    ```bash
-    uv run estimator run
-    ```
+## Key Files
 
-## Support
-
-For support, questions, or feedback regarding the SoftwareProjectEstimatorWithRag Crew or crewAI.
-- Visit our [documentation](https://docs.crewai.com)
-- Reach out to us through our [GitHub repository](https://github.com/joaomdmoura/crewai)
-- [Join our Discord](https://discord.com/invite/X4JWnZnxPb)
-- [Chat with our docs](https://chatg.pt/DWjSBZn)
-
-Let's create wonders together with the power and simplicity of crewAI.
+```
+src/estimator/crew.py            # Agent pipeline definition
+src/estimator/api.py             # FastAPI endpoints
+src/estimator/config/agents.yaml # Agent prompts and config
+src/estimator/config/tasks.yaml  # Task definitions
+src/estimator/tools/             # Custom tools (Postgres, Jina, MindsDB)
+docker-compose.yml               # Full stack definition
+```
