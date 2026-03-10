@@ -436,11 +436,11 @@ async def health_services():
         return resp.json()
     checks.append(_check_service("grafana", check_grafana))
 
-    # Caddy (use admin API — port 80 proxies back to this app, causing deadlock)
+    # Caddy (use dedicated health endpoint — catch-all proxies back to this app)
     def check_caddy():
-        resp = http_requests.get("http://caddy:2019/config/", timeout=5)
+        resp = http_requests.get("http://caddy:80/caddy-health", timeout=5)
         resp.raise_for_status()
-        return "admin API reachable"
+        return resp.text.strip()
     checks.append(_check_service("caddy", check_caddy))
 
     # --- oute-main services ---

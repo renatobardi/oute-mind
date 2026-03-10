@@ -32,6 +32,11 @@
 		reverse_proxy http://02_projects:3002
 	}
 
+	# Health check (responds directly, no proxy)
+	handle /caddy-health {
+		respond "OK" 200
+	}
+
 	# FastAPI (oute-mind catch-all)
 	handle {
 		reverse_proxy http://app:8000
