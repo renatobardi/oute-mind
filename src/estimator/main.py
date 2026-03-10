@@ -56,6 +56,13 @@ def test():
     except Exception as e:
         raise Exception(f"An error occurred while testing the crew: {e}")
 
+def run_with_trigger():
+    """
+    Run the FastAPI server with async estimation support.
+    """
+    from estimator.api import run_api
+    run_api()
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
         print("Usage: main.py <command> [<args>]")
@@ -70,6 +77,8 @@ if __name__ == "__main__":
         replay()
     elif command == "test":
         test()
+    elif command == "run_with_trigger":
+        run_with_trigger()
     else:
         print(f"Unknown command: {command}")
         sys.exit(1)

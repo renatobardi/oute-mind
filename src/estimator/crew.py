@@ -29,10 +29,19 @@ LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.7"))
 from crewai_tools import (
 	FileReadTool,
 	OCRTool,
-	AIMindTool,
 	ScrapeWebsiteTool,
 	QdrantVectorSearchTool,
 	SerperDevTool
+)
+from estimator.tools import (
+	GetChecklistTool,
+	SearchEstimationHistoryTool,
+	SearchPatternsTool,
+	SaveEstimationTool,
+	SaveFinancialScenarioTool,
+	JinaReaderTool,
+	StoreContextTool,
+	RetrieveContextTool,
 )
 
 @CrewBase
@@ -49,8 +58,10 @@ class SoftwareProjectEstimatorWithRagCrew:
             tools=[
                 FileReadTool(),
                 OCRTool(),
-                AIMindTool(),
-                ScrapeWebsiteTool()
+                ScrapeWebsiteTool(),
+                GetChecklistTool(),
+                SaveEstimationTool(),
+                StoreContextTool(),
             ],
             verbose=True,
             llm=LLM(model=DEFAULT_MODEL, temperature=LLM_TEMPERATURE),
@@ -62,10 +73,11 @@ class SoftwareProjectEstimatorWithRagCrew:
             config=self.agents_config["technical_research_analyst_with_rag"], # type: ignore[index]
             tools=[
                 QdrantVectorSearchTool(),
-                SerperDevTool(), # Can be used with Jina r.jina.ai
-                AIMindTool(),
-                ScrapeWebsiteTool(), # Complementary to Jina
-                # PostgresqlTool(), # Using JSONB for NoSQL patterns
+                SerperDevTool(),
+                JinaReaderTool(),
+                SearchEstimationHistoryTool(),
+                SearchPatternsTool(),
+                RetrieveContextTool(),
             ],
             verbose=True,
             llm=LLM(model=DEFAULT_MODEL, temperature=LLM_TEMPERATURE),
@@ -77,8 +89,10 @@ class SoftwareProjectEstimatorWithRagCrew:
             config=self.agents_config["software_architect"], # type: ignore[index]
             tools=[
                 QdrantVectorSearchTool(),
-                AIMindTool(),
-                # PostgresqlTool(), # To be implemented
+                SearchPatternsTool(),
+                SaveEstimationTool(),
+                StoreContextTool(),
+                RetrieveContextTool(),
             ],
             verbose=True,
             llm=LLM(model=DEFAULT_MODEL, temperature=LLM_TEMPERATURE),
@@ -88,7 +102,11 @@ class SoftwareProjectEstimatorWithRagCrew:
     def cost_optimization_specialist(self) -> Agent:
         return Agent(
             config=self.agents_config["cost_optimization_specialist"], # type: ignore[index]
-            tools=[ScrapeWebsiteTool()], # For GCP/AWS/Azure pricing
+            tools=[
+                ScrapeWebsiteTool(),
+                SaveFinancialScenarioTool(),
+                RetrieveContextTool(),
+            ],
             verbose=True,
             llm=LLM(model=DEFAULT_MODEL, temperature=LLM_TEMPERATURE),
         )
@@ -100,7 +118,8 @@ class SoftwareProjectEstimatorWithRagCrew:
             tools=[
                 QdrantVectorSearchTool(),
                 SerperDevTool(),
-                # PostgresqlTool(), # To be implemented
+                SearchEstimationHistoryTool(),
+                RetrieveContextTool(),
             ],
             verbose=True,
             llm=LLM(model=DEFAULT_MODEL, temperature=LLM_TEMPERATURE),
@@ -110,7 +129,11 @@ class SoftwareProjectEstimatorWithRagCrew:
     def knowledge_management_specialist(self) -> Agent:
         return Agent(
             config=self.agents_config["knowledge_management_specialist"], # type: ignore[index]
-            tools=[QdrantVectorSearchTool(), AIMindTool()],
+            tools=[
+                QdrantVectorSearchTool(),
+                SaveEstimationTool(),
+                StoreContextTool(),
+            ],
             verbose=True,
             llm=LLM(model=DEFAULT_MODEL, temperature=LLM_TEMPERATURE),
         )
@@ -163,5 +186,5 @@ class SoftwareProjectEstimatorWithRagCrew:
             tasks=self.tasks,
             process=Process.sequential, # Sequential execution for logic, enrichment as final step
             verbose=True,
-            chat_llm=LLM(model="google/gemini-2.0-flash"),
+            chat_llm=LLM(model="google/gemini-1.5-flash"),
         )

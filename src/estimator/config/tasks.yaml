@@ -1,70 +1,164 @@
 ---
 conduct_architecture_discovery_session:
   description: >
-    Execute a comprehensive discovery interview with the client. The process must start
-    by querying a PostgreSQL relational database to fetch initial scoping questions.
-    Based on the client's initial responses, identify and retrieve the specific
-    project checklist from the PostgreSQL database. Process diverse media inputs:
-    text, images, audio, and video. 
-    NOTE: This task requires manual client approval before proceeding to Technical Analysis.
+    Execute a structured discovery interview for estimation {estimation_id}.
+
+    1. Fetch the "initial_scoping" checklist from PostgreSQL using the Get Discovery Checklist tool.
+    2. Present scoping questions to the client and collect answers.
+    3. Process any attached media (images, audio, documents) using OCR and FileRead tools.
+    4. Based on initial answers, fetch the appropriate specialized checklist
+       (e.g. "technical_deep_dive" or "integration_review").
+    5. Complete the specialized checklist with the client.
+    6. Store findings in agent context (key: "discovery_findings") and persist to PostgreSQL.
+
+    Project details provided: {project_details}
+
+    NOTE: This task requires manual client approval before the pipeline continues.
   expected_output: >
-    A detailed discovery report with unique estimation ID: {estimation_id}.
+    A structured discovery report in JSON format containing:
+    - estimation_id: {estimation_id}
+    - project_type: identified project category
+    - requirements: list of functional and non-functional requirements
+    - constraints: technical, budget, and timeline constraints
+    - media_analysis: summary of any processed images/audio/documents
+    - recommended_stack: initial technology recommendations
+    - open_questions: any unresolved items requiring follow-up
   agent: software_architecture_interviewer
 
 rag_enhanced_technical_analysis:
   description: >
-    Utilize multi-tenant RAG (Team, User, Project) and the Jina.ai Reader tool to 
-    validate the discovery report. Search for framework patterns in PostgreSQL JSONB
-    and historical durations. Provide a technical validation based on official 
-    documentation and internet research.
+    Validate the Phase 1 discovery report for estimation {estimation_id} using
+    historical data, pattern matching, and external documentation research.
+
+    1. Retrieve discovery findings from agent context.
+    2. Search PostgreSQL for similar design patterns matching the proposed stack.
+    3. Search estimation history for past projects with similar scope and compare timelines.
+    4. Query Qdrant for semantically similar past estimations.
+    5. Use Jina Reader to fetch official documentation for each proposed technology
+       and verify compatibility, versions, and limitations.
+    6. Use Serper to search for community feedback and known issues.
+
+    Produce a validation report that confirms or challenges each technical decision.
   expected_output: >
-    A technical validation report with historical timeframes and framework standards.
+    A technical validation report in JSON format containing:
+    - validated_technologies: list with status (confirmed/flagged/rejected) and evidence
+    - historical_comparison: similar past projects with actual durations vs. proposed
+    - pattern_matches: relevant design patterns from the database
+    - documentation_findings: key facts from official docs (versions, limits, deprecations)
+    - community_insights: relevant community feedback or known issues
+    - risk_flags: any concerns discovered during validation
+    - recommendations: suggested changes to the proposed approach
   agent: technical_research_analyst_with_rag
   context:
     - conduct_architecture_discovery_session
 
 consolidate_design_and_persist:
   description: >
-    Consolidate all requirements and technical analysis into a final functional 
-    and technical design. Populate all relevant PostgreSQL tables with the project 
-    data to support future reporting outputs (Web, PDF, PPT, Excel).
+    Transform the validated discovery and analysis into a complete architecture design
+    for estimation {estimation_id}.
+
+    1. Retrieve context from both Interviewer and Analyst phases.
+    2. Search for reusable design patterns in PostgreSQL.
+    3. Produce a structured design blueprint covering architecture, stack, schema,
+       integrations, NFRs, and development phases.
+    4. Persist the design to PostgreSQL (phase=3, status="completed").
+    5. Store the blueprint in agent context (key: "design_blueprint") for the Cost Specialist.
+
+    Every architectural decision must trace back to a validated requirement.
   expected_output: >
-    A finalized design blueprint and confirmation of PostgreSQL data persistence.
+    A design blueprint in JSON format containing:
+    - architecture: component diagram description with responsibilities
+    - technology_stack: justified technology choices per layer
+    - database_schema: tables, relationships, and data flow
+    - api_design: endpoints, contracts, and integration points
+    - nfr_requirements: scalability, security, performance targets
+    - development_phases: ordered phases with dependencies and deliverables
+    - persistence_confirmation: PostgreSQL record ID confirming data was saved
   agent: software_architect
   context:
     - rag_enhanced_technical_analysis
 
 financial_scenario_modeling:
   description: >
-    Generate three detailed cost scenarios based on the architect's design:
-    1) Humans-only development, 2) AI-driven development, and 3) Hybrid approach.
-    Include FinOps optimizations (CUDs, preemptive) and detailed risk assessments.
+    Generate three cost scenarios for estimation {estimation_id} based on the
+    architecture design from Phase 3.
+
+    1. Retrieve the design blueprint from agent context.
+    2. For each component, calculate costs under three scenarios:
+       a) Human-only: team composition, hours, rates, timeline
+       b) AI-assisted: productivity gains, tool costs, reduced timeline
+       c) Hybrid: optimal mix per component
+    3. Assess risks per scenario (technical, schedule, cost).
+    4. Verify cloud pricing using ScrapeWebsiteTool if infrastructure is needed.
+    5. Save each scenario to PostgreSQL using the Save Financial Scenario tool.
+
+    Present all costs in BRL and USD with monthly and total breakdowns.
   expected_output: >
-    A financial report with three costed scenarios and risk analysis.
+    A financial report in JSON format containing:
+    - scenarios:
+        - human_only: team, hours, costs (BRL/USD), timeline, risks
+        - ai_assisted: tools, productivity_gains, costs (BRL/USD), timeline, risks
+        - hybrid: component_allocation, costs (BRL/USD), timeline, risks
+    - cost_comparison_table: side-by-side summary of the three scenarios
+    - infrastructure_costs: cloud hosting estimates if applicable
+    - risk_matrix: top risks per scenario with probability, impact, mitigation
+    - recommendation: suggested scenario with justification
+    - persistence_confirmation: PostgreSQL record IDs for saved scenarios
   agent: cost_optimization_specialist
   context:
     - consolidate_design_and_persist
 
 final_review_and_presentation:
   description: >
-    Review the consolidated functional, technical, and financial results. 
-    Present the results to the client, allowing for user-driven revisions.
-    Evaluate user changes, raise technical concerns where necessary, and 
-    update the plan until final user acceptance is confirmed.
+    Review all outputs and prepare the final client presentation for estimation {estimation_id}.
+
+    1. Retrieve all phase outputs from agent context.
+    2. Search estimation history for reasonableness benchmarks.
+    3. Check consistency: requirements → design → costs → risks.
+    4. Prepare an executive summary with:
+       - Project overview, scope, architecture highlights
+       - Cost comparison table (3 scenarios)
+       - Risk matrix (top 5)
+       - Recommended scenario with justification
+       - Next steps and assumptions
+    5. Present to the client and incorporate any feedback.
+
+    NOTE: This task requires client acceptance before completion.
   expected_output: >
-    A final approved estimation package and record of the acceptance process.
+    A final estimation package in JSON format containing:
+    - executive_summary: 1-paragraph project overview
+    - scope: bullet-point list of in-scope and out-of-scope items
+    - architecture_summary: key design decisions and rationale
+    - cost_comparison: table with human-only vs ai-assisted vs hybrid
+    - risk_summary: top 5 risks with mitigation strategies
+    - recommended_scenario: chosen approach with justification
+    - assumptions: list of assumptions made during estimation
+    - next_steps: actionable items for project kickoff
+    - client_feedback: record of any feedback received
+    - acceptance_status: approved/pending/rejected
   agent: reviewer_and_presenter
   context:
     - financial_scenario_modeling
 
 long_term_knowledge_enrichment:
   description: >
-    In parallel with the final presentation and review, index all final 
-    estimation results, project characteristics, and technical patterns 
-    into the Qdrant vector database. Ensure the multi-tenant silos (Team, User) 
-    are updated with these new insights for future retrieval.
+    Enrich the knowledge base with patterns from completed estimation {estimation_id}.
+
+    1. Retrieve all phase outputs from agent context.
+    2. Extract reusable knowledge: technology patterns, cost benchmarks,
+       timeline benchmarks, risk patterns.
+    3. Index extracted knowledge into Qdrant with team/project tags.
+    4. Save a summary record to PostgreSQL (phase=6, status="completed").
+    5. Confirm completion via agent context (key: "knowledge_enrichment").
+
+    Focus on patterns that will improve accuracy of future estimations.
   expected_output: >
-    Confirmation of knowledge base enrichment in Qdrant.
+    A knowledge enrichment confirmation containing:
+    - patterns_indexed: number of patterns stored in Qdrant
+    - categories: list of knowledge categories extracted
+    - benchmarks_updated: cost and timeline benchmarks added
+    - postgresql_record_id: confirmation of summary persistence
+    - enrichment_summary: brief description of what was learned from this estimation
   agent: knowledge_management_specialist
   context:
     - final_review_and_presentation

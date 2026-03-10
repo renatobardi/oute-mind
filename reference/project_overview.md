@@ -1,6 +1,6 @@
 ## 🏗️ Sobre o Estimator
 
-O **Estimator** é um sistema de multi-agentes (CrewAI) especializado em gerar orçamentos e especificações técnicas de alta fidelidade para projetos de software. Ele utiliza **RAG Multi-tenant** no Qdrant e processamento **Multi-modal** nativo do Gemini 2.0 Flash para entender requisitos vindo de textos, áudios, imagens e vídeos.
+O **Estimator** é um sistema de multi-agentes (CrewAI) especializado em gerar orçamentos e especificações técnicas de alta fidelidade para projetos de software. Ele utiliza **RAG Multi-tenant** no Qdrant e processamento **Multi-modal** nativo do Gemini 1.5 Flash para entender requisitos vindo de textos, áudios, imagens e vídeos.
 
 ---
 

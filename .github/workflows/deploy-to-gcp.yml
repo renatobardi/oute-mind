@@ -36,7 +36,7 @@ jobs:
           REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
           MINDSDB_ADMIN_USER=mindsdb
           MINDSDB_ADMIN_PASSWORD=${{ secrets.MINDSDB_ADMIN_PASSWORD }}
-          MODEL=google/gemini-2.0-flash
+          MODEL=google/gemini-1.5-flash
           FASTAPI_PORT=8000
           FASTAPI_WORKERS=4
           GRAFANA_PASSWORD=${{ secrets.GRAFANA_PASSWORD }}
