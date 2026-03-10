@@ -7,7 +7,7 @@
 
 ## System Overview
 
-oute-mind is a **CrewAI-powered multi-agent system** that generates software project estimations. It processes requirements through a 6-agent sequential pipeline and produces three cost scenarios: human-only, AI-assisted, and hybrid.
+oute-mind is a **CrewAI-powered multi-agent system** that generates software project estimations. It processes requirements through a 6-agent sequential pipeline and produces three cost scenarios: human-only, AI-only, and hybrid.
 
 **Target users**: software companies, consultancies, enterprise IT teams needing accurate project cost forecasting.
 
@@ -32,45 +32,56 @@ Client Request → 6-Agent Pipeline (90-130s) → 3 Cost Scenarios + Risks + Arc
 │  │  Caddy   │──▶│           FastAPI Application                │   │
 │  │  :80     │   │           (estimator.api)                    │   │
 │  └──────────┘   │                                              │   │
-│                 │  CrewAI Orchestrator                          │   │
+│                 │  CrewAI Orchestrator (sequential)             │   │
 │                 │  ┌────────────────────────────────────────┐   │   │
 │                 │  │ Agent 1 ──▶ [approval] ──▶ Agent 2     │   │   │
 │                 │  │ Agent 2 ──▶ Agent 3 ──▶ Agent 4       │   │   │
 │                 │  │ Agent 4 ──▶ Agent 5 ──▶ Agent 6       │   │   │
 │                 │  └────────────────────────────────────────┘   │   │
-│                 └──────────┬──────────┬──────────┬──────────┘   │
-│                            │          │          │              │
-│                 ┌──────────▼──┐  ┌────▼────┐  ┌─▼──────────┐  │
-│                 │ PostgreSQL  │  │  Redis   │  │   Qdrant   │  │
-│                 │ 16 (JSONB)  │  │  7-alpine│  │  (vector)  │  │
-│                 │ :5432       │  │  :6379   │  │  :6333     │  │
-│                 └─────────────┘  └─────────┘  └────────────┘  │
-│                                                                │
-│                 ┌─────────────┐  ┌───────────┐  ┌──────────┐  │
-│                 │  MindsDB    │  │Prometheus │  │ Grafana  │  │
-│                 │  :47334     │  │  :9090    │  │ :3080    │  │
-│                 └─────────────┘  └───────────┘  └──────────┘  │
-└─────────────────────────────────────────────────────────────────┘
-                            │
-              External APIs │
-              ──────────────┤
-              Gemini 2.5    │ generativelanguage.googleapis.com
-              Jina Reader   │ r.jina.ai (cloud API)
-              Serper        │ google.serper.dev
+│                 └───────────┬──────┬──────┬──────┬──────────┘   │
+│                             │      │      │      │              │
+│                 ┌───────────▼──┐ ┌─▼────┐ ┌▼─────────┐ ┌──▼──────┐│
+│                 │ PostgreSQL   │ │Redis │ │ Qdrant   │ │MindsDB  ││
+│                 │ 16 (JSONB)   │ │7-alp │ │ (vector) │ │         ││
+│                 │ :5432        │ │:6379 │ │ :6333    │ │:47334   ││
+│                 └──────────────┘ └──────┘ └──────────┘ └─────────┘│
+│                                                                    │
+│                 ┌──────────────┐  ┌──────────────┐                │
+│                 │ Prometheus   │  │  Grafana     │                │
+│                 │ :9090        │  │  :3080       │                │
+│                 └──────────────┘  └──────────────┘                │
+└────────────────────────────────────────────────────────────────────┘
+                           │
+             External APIs │
+             ──────────────┤
+             Gemini 2.5    │ generativelanguage.googleapis.com
+             Jina Reader   │ r.jina.ai (cloud API, no container)
+             Serper        │ google.serper.dev
 ```
 
 ### Container Map
 
-| Container        | Image                 | Port  | Purpose                        |
-|------------------|-----------------------|-------|--------------------------------|
-| `oute-app`       | oute-mind-app (local) | 8000  | FastAPI + CrewAI pipeline      |
-| `oute-postgres`  | postgres:16-alpine    | 5432  | Relational + JSONB storage     |
-| `oute-redis`     | redis:7-alpine        | 6379  | Async job state (TTL 24h)      |
-| `oute-qdrant`    | qdrant/qdrant:latest  | 6333  | Vector search / RAG            |
-| `oute-mindsdb`   | mindsdb/mindsdb       | 47334 | Agent context synchronization  |
-| `oute-caddy`     | caddy:latest          | 80    | Reverse proxy                  |
-| `oute-prometheus` | prom/prometheus       | 9090  | Metrics collection             |
-| `oute-grafana`   | grafana/grafana       | 3080  | Monitoring dashboards          |
+| Container          | Image                   | Port(s)     | Purpose                        |
+|--------------------|-------------------------|-------------|--------------------------------|
+| `oute-app`         | oute-mind-app (local)   | 8000        | FastAPI + CrewAI pipeline      |
+| `oute-postgres`    | postgres:16-alpine      | 5432        | Relational + JSONB storage     |
+| `oute-redis`       | redis:7-alpine          | 6379        | Async job state (TTL 24h)      |
+| `oute-qdrant`      | qdrant/qdrant:latest    | 6333, 6334  | Vector search / RAG            |
+| `oute-mindsdb`     | mindsdb/mindsdb:latest  | 47334, 47335| Agent context synchronization  |
+| `oute-caddy`       | caddy:latest            | 80          | Reverse proxy                  |
+| `oute-prometheus`  | prom/prometheus:latest  | 9090        | Metrics collection             |
+| `oute-grafana`     | grafana/grafana:latest  | 3080        | Monitoring dashboards          |
+
+Additional `oute-main` services (when available): `oute-dashboard` (:3020), `oute-auth-profile` (:3021), `oute-projects` (:3022).
+
+### Caddy Routing
+
+| Path             | Target                     |
+|------------------|----------------------------|
+| `/dashboard*`    | `http://00_dashboard:3000` |
+| `/api/auth*`     | `http://01_auth-profile:3001` |
+| `/api/projects*` | `http://02_projects:3002`  |
+| `/*` (default)   | `http://app:8000`          |
 
 ---
 
@@ -78,7 +89,7 @@ Client Request → 6-Agent Pipeline (90-130s) → 3 Cost Scenarios + Risks + Arc
 
 ### Execution Model
 
-All agents use **CrewAI sequential process**. Each agent receives the output of all previous agents as context.
+All agents use **CrewAI sequential process** (`Process.sequential`). Each agent receives the output of all previous agents as context. LLM: `google/gemini-2.5-flash-lite` (configurable via `MODEL` env var). Temperature: `0.7` (configurable via `LLM_TEMPERATURE`).
 
 ```
 Agent 1 (Discovery)
@@ -104,103 +115,133 @@ Agent 6 (Knowledge)
 
 ### Agent Specifications
 
-#### Agent 1 — Solution Architect (Interviewer)
+#### Agent 1 — `software_architecture_interviewer`
 
+**Role**: Solution Architect
 **Mission**: Multi-modal discovery interview. Extracts requirements from text, audio, video, images, and documents via Gemini's native multi-modal capabilities.
 
-**Tools**:
-| Tool              | Source     | Purpose                                  |
-|-------------------|------------|------------------------------------------|
-| FileReadTool      | crewai     | Read uploaded files                      |
-| OCRTool           | crewai     | Extract text from images/PDFs            |
-| ScrapeWebsiteTool | crewai     | Scrape reference URLs                    |
-| GetChecklistTool  | custom     | Load discovery checklist from PostgreSQL |
-| SaveEstimationTool| custom     | Persist findings to PostgreSQL           |
-| StoreContextTool  | custom     | Share context with next agents           |
+| Tool                 | Source     | Purpose                                  |
+|----------------------|------------|------------------------------------------|
+| `FileReadTool`       | crewai     | Read uploaded files                      |
+| `OCRTool`            | crewai     | Extract text from images/PDFs            |
+| `ScrapeWebsiteTool`  | crewai     | Scrape reference URLs                    |
+| `GetChecklistTool`   | custom     | Load discovery checklist from PostgreSQL |
+| `SaveEstimationTool` | custom     | Persist findings to PostgreSQL           |
+| `StoreContextTool`   | custom     | Share context with next agents via MindsDB|
 
-**Output**: `discovery_findings` JSON with functional requirements, non-functional requirements, constraints, and assumptions.
+**Output**: `discovery_findings` — functional requirements, non-functional requirements, constraints, assumptions.
 
-#### Agent 2 — Technical Research Analyst
+#### Agent 2 — `technical_research_analyst_with_rag`
 
-**Mission**: Validate discoveries against RAG knowledge base and live web research. Uses Jina Reader (cloud API at r.jina.ai) for reading official documentation.
+**Role**: Technical Research Analyst
+**Mission**: Validate discoveries against RAG knowledge base and live web research. Uses Jina Reader cloud API (r.jina.ai) for reading official documentation as clean markdown.
 
-**Tools**:
-| Tool                     | Source  | Purpose                              |
-|--------------------------|---------|--------------------------------------|
-| QdrantVectorSearchTool   | crewai  | Semantic search in knowledge base    |
-| SerperDevTool            | crewai  | Google search for tech validation    |
-| JinaReaderTool           | custom  | Read web docs as clean markdown      |
-| SearchEstimationHistory  | custom  | Query past estimations               |
-| SearchPatternsTool       | custom  | Find similar project patterns        |
-| RetrieveContextTool      | custom  | Get Agent 1's discoveries            |
+| Tool                          | Source  | Purpose                              |
+|-------------------------------|---------|--------------------------------------|
+| `QdrantVectorSearchTool`      | crewai  | Semantic search in `knowledge_base`  |
+| `SerperDevTool`               | crewai  | Google search for tech validation    |
+| `JinaReaderTool`              | custom  | Read web docs via r.jina.ai          |
+| `SearchEstimationHistoryTool` | custom  | Query past estimations               |
+| `SearchPatternsTool`          | custom  | Find similar design patterns         |
+| `RetrieveContextTool`         | custom  | Get Agent 1's context from MindsDB   |
 
-**Output**: `research_findings` JSON with validated technologies, risks, and reference documentation.
+**Output**: `research_findings` — validated technologies, risks, reference docs.
 
-#### Agent 3 — Software Architect (Designer)
+#### Agent 3 — `software_architect`
 
-**Mission**: Consolidate discovery and research into a formal architecture design. Persist the design blueprint to PostgreSQL.
+**Role**: Software Architect & Designer
+**Mission**: Consolidate discovery and research into a formal architecture design. Persist the blueprint to PostgreSQL.
 
-**Tools**: QdrantVectorSearchTool, SearchPatternsTool, SaveEstimationTool, StoreContextTool, RetrieveContextTool
+| Tool                          | Source  | Purpose                              |
+|-------------------------------|---------|--------------------------------------|
+| `QdrantVectorSearchTool`      | crewai  | Search similar architectures         |
+| `SearchPatternsTool`          | custom  | Find reusable design patterns        |
+| `SaveEstimationTool`          | custom  | Persist design to PostgreSQL         |
+| `StoreContextTool`            | custom  | Share design with downstream agents  |
+| `RetrieveContextTool`         | custom  | Get upstream agent context           |
 
-**Output**: `design_blueprint` JSON with components, integrations, data model, and deployment strategy.
+**Output**: `design_blueprint` — components, integrations, data model, deployment.
 
-#### Agent 4 — Cost Optimization Specialist (FinOps)
+#### Agent 4 — `cost_optimization_specialist`
 
+**Role**: FinOps Specialist
 **Mission**: Generate three financial scenarios with risk-adjusted estimates.
 
-**Scenarios**:
-1. **Human-Only**: Traditional development team
-2. **AI-Assisted**: Hybrid team with AI tools (Copilot, code gen)
-3. **Full AI**: Maximum AI automation with minimal human oversight
+| Scenario       | Description                                         |
+|----------------|-----------------------------------------------------|
+| `human-only`   | Traditional development team                        |
+| `ai-only`      | Maximum AI automation, minimal human oversight      |
+| `hybrid`       | Balanced team with AI tools (Copilot, code gen)     |
 
-**Tools**: ScrapeWebsiteTool, SaveFinancialScenarioTool, RetrieveContextTool
+| Tool                          | Source  | Purpose                              |
+|-------------------------------|---------|--------------------------------------|
+| `ScrapeWebsiteTool`           | crewai  | Research market rates                |
+| `SaveFinancialScenarioTool`   | custom  | Persist scenarios to PostgreSQL      |
+| `RetrieveContextTool`         | custom  | Get architecture from Agent 3        |
 
-**Output**: `financial_scenarios` JSON with cost breakdown, timeline, team composition, and confidence intervals.
+**Output**: `financial_scenarios` — cost breakdown, timeline, team, confidence.
 
-#### Agent 5 — Reviewer & Presenter
+#### Agent 5 — `reviewer_and_presenter`
 
+**Role**: Technical-Functional Reviewer
 **Mission**: Cross-validate all outputs, generate client-facing summary, and manage approval feedback loop.
 
-**Tools**: QdrantVectorSearchTool, SerperDevTool, SearchEstimationHistoryTool, RetrieveContextTool
+| Tool                          | Source  | Purpose                              |
+|-------------------------------|---------|--------------------------------------|
+| `QdrantVectorSearchTool`      | crewai  | Validate against knowledge base      |
+| `SerperDevTool`               | crewai  | Additional research if needed        |
+| `SearchEstimationHistoryTool` | custom  | Compare with past estimations        |
+| `RetrieveContextTool`         | custom  | Get all upstream context             |
 
 **Output**: Final estimation report with executive summary and recommendation.
 
-#### Agent 6 — Knowledge Management Specialist
+#### Agent 6 — `knowledge_management_specialist`
 
-**Mission**: Index the completed estimation into the knowledge base for future RAG retrieval. Runs as the final step to enrich the system's memory.
+**Role**: Knowledge Guardian
+**Mission**: Index the completed estimation into the knowledge base for future RAG retrieval.
 
-**Tools**: QdrantVectorSearchTool, SaveEstimationTool, StoreContextTool
+| Tool                          | Source  | Purpose                              |
+|-------------------------------|---------|--------------------------------------|
+| `QdrantVectorSearchTool`      | crewai  | Check for duplicates before indexing |
+| `SaveEstimationTool`          | custom  | Persist enrichment to PostgreSQL     |
+| `StoreContextTool`            | custom  | Store completion confirmation        |
 
-**Output**: `knowledge_enrichment` confirmation with indexed document IDs.
+**Output**: `knowledge_enrichment` — indexed document confirmation.
 
 ---
 
 ## Custom Tools
 
-### PostgreSQL Tools (`tools/postgres_tool.py`)
+### PostgreSQL Tools (`src/estimator/tools/postgres_tool.py`)
 
-| Tool                        | Operation                                    |
-|-----------------------------|----------------------------------------------|
-| `GetChecklistTool`          | Load discovery checklist by category         |
-| `SearchEstimationHistoryTool` | Query past estimations with filters        |
-| `SearchPatternsTool`        | Find technology/architecture patterns        |
-| `SaveEstimationTool`        | Insert estimation findings                   |
-| `SaveFinancialScenarioTool` | Insert cost scenario data                    |
+All tools connect via `psycopg2` using env vars: `POSTGRES_HOST` (default: `postgres`), `POSTGRES_PORT` (default: `5432`), `POSTGRES_USER` (default: `oute_prod_user`), `POSTGRES_PASSWORD`, `POSTGRES_DB` (default: `oute_production`).
 
-Connection: `psycopg2` via env vars `POSTGRES_HOST`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`.
+| Class Name                    | Tool Name                   | Schema Table              | Operation |
+|-------------------------------|-----------------------------|---------------------------|-----------|
+| `GetChecklistTool`            | "Get Discovery Checklist"   | `estimator.checklists`    | SELECT by phase |
+| `SearchEstimationHistoryTool` | "Search Estimation History" | `estimator.estimation_history` | SELECT with filters |
+| `SearchPatternsTool`          | "Search Design Patterns"    | `estimator.patterns`      | SELECT by name/keyword |
+| `SaveEstimationTool`          | "Save Estimation Results"   | `estimator.estimation_history` | INSERT |
+| `SaveFinancialScenarioTool`   | "Save Financial Scenario"   | `estimator.financial_scenarios` | INSERT |
 
-### Jina Reader Tool (`tools/jina_reader_tool.py`)
+### Jina Reader Tool (`src/estimator/tools/jina_reader_tool.py`)
 
-Cloud-only implementation using `https://r.jina.ai/{url}`. Returns web pages as clean markdown. Truncates at 15,000 characters to stay within LLM context limits.
+| Class Name      | Tool Name                      | Endpoint                  |
+|-----------------|--------------------------------|---------------------------|
+| `JinaReaderTool`| "Read Web Page (Jina Reader)"  | `https://r.jina.ai/{url}` |
 
-### MindsDB Tools (`tools/mindsdb_tool.py`)
+Cloud-only. Returns web pages as clean markdown. Truncates at 15,000 characters. Header: `Accept: text/markdown`. Timeout: 30s.
 
-| Tool                 | Operation                                      |
-|----------------------|------------------------------------------------|
-| `StoreContextTool`   | Store agent output for downstream agents       |
-| `RetrieveContextTool`| Retrieve upstream agent context                |
+### MindsDB Tools (`src/estimator/tools/mindsdb_tool.py`)
 
-Connection: MindsDB SQL API via HTTP at `MINDSDB_HOST:MINDSDB_PORT`.
+All tools connect via HTTP to `MINDSDB_HOST:MINDSDB_PORT` (default: `mindsdb:47334`). Uses SQL API endpoint `POST /api/sql/query`. Internal table: `agent_context` (columns: `key_name`, `agent_name`, `context_data`, `created_at`).
+
+| Class Name           | Tool Name                | Operation                           |
+|----------------------|--------------------------|-------------------------------------|
+| `StoreContextTool`   | "Store Agent Context"    | INSERT/UPDATE agent_context         |
+| `RetrieveContextTool`| "Retrieve Agent Context" | SELECT from agent_context by key    |
+
+Context keys used across agents: `discovery_findings`, `design_blueprint`, `knowledge_enrichment`, `rag_validation`.
 
 ---
 
@@ -210,8 +251,8 @@ Connection: MindsDB SQL API via HTTP at `MINDSDB_HOST:MINDSDB_PORT`.
 
 ```
 POST /run                         → {estimation_id, status: "queued"}
-GET  /status/{estimation_id}      → {status: "running", progress: "agent_2"}
-POST /approve/{estimation_id}     → {status: "approved"} (after Agent 1)
+GET  /status/{estimation_id}      → {status: "running", current_phase: 2, phase_name: "RAG Analysis"}
+POST /approve/{estimation_id}     → {status: "approved"}
 GET  /status/{estimation_id}      → {status: "completed", result: {...}}
 ```
 
@@ -219,16 +260,51 @@ GET  /status/{estimation_id}      → {status: "completed", result: {...}}
 
 | Method | Path                      | Response       | Description                    |
 |--------|---------------------------|----------------|--------------------------------|
-| GET    | `/health`                 | JSON           | `{"status": "healthy"}`        |
+| GET    | `/`                       | JSON           | Available endpoints list       |
+| GET    | `/health`                 | JSON           | Lightweight (no crew init)     |
 | GET    | `/health/services`        | JSON           | 7 services with latency        |
 | GET    | `/healthcheck`            | HTML           | Visual dashboard               |
 | GET    | `/api/status`             | JSON           | Version + crew readiness       |
-| GET    | `/`                       | JSON           | Available endpoints            |
-| POST   | `/run`                    | JSON           | Start async estimation         |
-| GET    | `/status/{id}`            | JSON           | Poll estimation status         |
+| POST   | `/run`                    | `RunResponse`  | Start async estimation         |
+| GET    | `/status/{id}`            | `StatusResponse`| Poll estimation status        |
 | POST   | `/approve/{id}`           | JSON           | Approve Agent 1 scope          |
-| POST   | `/estimate`               | JSON           | Synchronous estimation         |
-| GET    | `/docs`                   | HTML           | Swagger UI (auto)              |
+| POST   | `/estimate`               | `EstimationResponse` | Synchronous estimation   |
+| GET    | `/docs`                   | HTML (auto)    | Swagger UI                     |
+
+### Response Models
+
+```python
+class RunResponse:
+    estimation_id: str
+    status: str          # "queued"
+    message: str
+
+class StatusResponse:
+    estimation_id: str
+    status: str          # "queued" | "running" | "completed" | "failed"
+    current_phase: int   # 1-6
+    phase_name: str      # e.g. "Discovery (Interviewer)"
+    started_at: str
+    completed_at: str
+    result: str          # final output (when completed)
+    error: str           # error message (when failed)
+
+class EstimationResponse:
+    estimation_id: str
+    result: str
+    status: str          # "success"
+```
+
+### Phase Names
+
+| Phase | Name                                   |
+|-------|----------------------------------------|
+| 1     | Discovery (Interviewer)                |
+| 2     | RAG Analysis (Researcher)              |
+| 3     | Design & Persistence (Architect)       |
+| 4     | Financial Scenarios (Cost Specialist)  |
+| 5     | Review & Presentation (Reviewer)       |
+| 6     | Knowledge Enrichment (Knowledge Spec.) |
 
 ### Health Services Response
 
@@ -238,10 +314,10 @@ GET  /status/{estimation_id}      → {status: "completed", result: {...}}
   "services": [
     {"service": "postgresql",  "status": "ok", "latency_ms": 14, "detail": "4 tables in estimator schema"},
     {"service": "redis",       "status": "ok", "latency_ms": 3},
-    {"service": "qdrant",      "status": "ok", "latency_ms": 2},
+    {"service": "qdrant",      "status": "ok", "latency_ms": 2, "detail": "healthz check passed"},
     {"service": "mindsdb",     "status": "ok", "latency_ms": 4},
     {"service": "jina_reader", "status": "ok", "latency_ms": 140, "detail": "cloud API"},
-    {"service": "gemini",      "status": "ok", "latency_ms": 207},
+    {"service": "gemini",      "status": "ok", "latency_ms": 207, "detail": "OK"},
     {"service": "crewai",      "status": "ok", "latency_ms": 0, "detail": "6 agents, 6 tasks"}
   ]
 }
@@ -254,53 +330,72 @@ GET  /status/{estimation_id}      → {status: "completed", result: {...}}
 ### PostgreSQL Schema (`estimator`)
 
 ```sql
-estimation_requests (
-    id SERIAL PRIMARY KEY,
-    estimation_id VARCHAR(255) UNIQUE,
-    project_details TEXT,
-    status VARCHAR(50),
-    created_at TIMESTAMP DEFAULT NOW()
+-- Discovery checklists (Agent 1)
+estimator.checklists (
+    id UUID PRIMARY KEY,
+    project_id UUID NOT NULL,
+    phase VARCHAR(50),           -- 'initial_scoping', 'technical_deep_dive', 'integration_review'
+    content JSONB NOT NULL,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP         -- auto-trigger
 )
 
-estimation_findings (
-    id SERIAL PRIMARY KEY,
-    estimation_id VARCHAR(255) REFERENCES estimation_requests(estimation_id),
-    agent_name VARCHAR(100),
-    findings JSONB,
-    created_at TIMESTAMP DEFAULT NOW()
+-- Agent findings per project (Agents 1-6)
+estimator.estimation_history (
+    id UUID PRIMARY KEY,
+    project_id UUID NOT NULL,
+    team_id UUID NOT NULL,
+    user_id UUID NOT NULL,
+    phase INT,                   -- 1 through 6
+    status VARCHAR(50),          -- 'completed', 'in_progress', 'approved', 'pending_approval'
+    data JSONB NOT NULL,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP         -- auto-trigger
 )
 
-estimation_costs (
-    id SERIAL PRIMARY KEY,
-    estimation_id VARCHAR(255) REFERENCES estimation_requests(estimation_id),
-    scenario_type VARCHAR(50),   -- 'human', 'ai', 'hybrid'
-    cost_breakdown JSONB,
-    total_cost DECIMAL(12,2),
-    timeline_weeks INTEGER,
-    confidence_level DECIMAL(3,2),
-    created_at TIMESTAMP DEFAULT NOW()
-)
-
-estimation_risks (
-    id SERIAL PRIMARY KEY,
-    estimation_id VARCHAR(255) REFERENCES estimation_requests(estimation_id),
-    risk_category VARCHAR(100),
+-- Reusable design patterns (Agent 3, 6)
+estimator.patterns (
+    id UUID PRIMARY KEY,
+    pattern_name VARCHAR(255) UNIQUE,
     description TEXT,
-    probability DECIMAL(3,2),
-    impact VARCHAR(20),
-    mitigation TEXT,
-    created_at TIMESTAMP DEFAULT NOW()
+    pattern_data JSONB NOT NULL,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP         -- auto-trigger
+)
+
+-- Cost scenarios (Agent 4)
+estimator.financial_scenarios (
+    id UUID PRIMARY KEY,
+    estimation_id UUID NOT NULL,
+    scenario_type VARCHAR(50),   -- 'human-only', 'ai-only', 'hybrid'
+    costs JSONB NOT NULL,
+    timeline JSONB NOT NULL,
+    risks JSONB NOT NULL,
+    created_at TIMESTAMP
 )
 ```
 
-### Qdrant Collections
+**Indexes**: `project_id` on checklists and estimation_history, `team_id` on estimation_history, `pattern_name` on patterns, `estimation_id` on financial_scenarios.
 
-| Collection           | Purpose                          | Embedding     |
-|----------------------|----------------------------------|---------------|
-| `knowledge_base`     | General technical knowledge      | Gemini        |
-| `project_patterns`   | Past project architectures       | Gemini        |
-| `technical_patterns` | Technology combinations          | Gemini        |
-| `cost_history`       | Historical cost data             | Gemini        |
+**Extensions**: `uuid-ossp` (UUID generation), `pg_trgm` (trigram matching).
+
+### Qdrant
+
+| Collection       | Purpose                                     |
+|------------------|---------------------------------------------|
+| `knowledge_base` | RAG documents for semantic search (default) |
+
+Collection name configurable via `QDRANT_COLLECTION` env var (default: `knowledge_base`). Connected via `QdrantConfig` with `QDRANT_URL` and `QDRANT_API_KEY`.
+
+### Redis
+
+Job state stored as JSON with 24-hour TTL. Key format: `job:{estimation_id}`.
+
+Fields: `status`, `current_phase`, `phase_name`, `started_at`, `completed_at`, `result`, `error`.
+
+### MindsDB
+
+Internal table `agent_context` for inter-agent communication. Not persistent across restarts — used only during active estimation runs.
 
 ---
 
@@ -334,27 +429,29 @@ System (OS):       ~2.0 GB
 Buffer:            ~5.4 GB
 ```
 
+Jina Reader is cloud-only (r.jina.ai) — no local container, no memory usage.
+
 ### Network Security
 
-| Port | Service     | Access              |
-|------|-------------|---------------------|
-| 22   | SSH         | IP whitelist only   |
-| 80   | HTTP (Caddy)| Public              |
-| 443  | HTTPS       | Public (auto TLS)   |
-| 5432 | PostgreSQL  | Internal only       |
-| 6333 | Qdrant      | Internal only       |
-| 6379 | Redis       | Internal only       |
-| 47334| MindsDB     | Internal only       |
+| Port   | Service      | Access              |
+|--------|-------------|---------------------|
+| 22     | SSH          | IP whitelist only   |
+| 80     | HTTP (Caddy) | Public              |
+| 443    | HTTPS        | Public (auto TLS)   |
+| 5432   | PostgreSQL   | Internal only       |
+| 6333   | Qdrant       | Internal only       |
+| 6379   | Redis        | Internal only       |
+| 47334  | MindsDB      | Internal only       |
 
 ### CI/CD
 
 GitHub Actions workflow (`.github/workflows/deploy-to-gcp.yml`):
 
 ```
-Push to main → SSH to VM → git pull → docker compose build → docker compose up -d → health check
+Push to main → SSH to VM → git pull → docker compose build → docker compose up -d → curl /health
 ```
 
-Secrets stored in GitHub: `GCP_VM_SSH_PRIVATE_KEY`, `GCP_VM_HOSTNAME`, `GCP_VM_USER`, `GOOGLE_API_KEY`, and database credentials.
+Secrets stored in GitHub: `GCP_VM_SSH_PRIVATE_KEY`, `GCP_VM_SSH_KNOWN_HOSTS`, `GCP_VM_USER`, `GCP_VM_HOSTNAME`, `GCP_PROJECT_ID`, `GCP_SERVICE_ACCOUNT_KEY`, `GOOGLE_API_KEY`, `SERPER_API_KEY`, `COMPOSIO_API_KEY`, `OCR_API_KEY`, `QDRANT_API_KEY`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `MINDSDB_ADMIN_PASSWORD`, `GRAFANA_PASSWORD`.
 
 ---
 
@@ -380,7 +477,21 @@ Secrets stored in GitHub: `GCP_VM_SSH_PRIVATE_KEY`, `GCP_VM_HOSTNAME`, `GCP_VM_U
 
 ---
 
-## Troubleshooting
+## Monitoring
+
+### Prometheus Scrape Targets
+
+| Job             | Target                    | Interval |
+|-----------------|---------------------------|----------|
+| prometheus      | localhost:9090            | 15s      |
+| caddy           | caddy:80                  | 15s      |
+| fastapi         | app:8000                  | 15s      |
+| redis           | redis:6379                | 15s      |
+| postgresql      | postgres:5432             | 15s      |
+| qdrant          | qdrant:6333               | 15s      |
+| oute-dashboard  | 00_dashboard:3000         | 15s      |
+| oute-auth       | 01_auth-profile:3001      | 15s      |
+| oute-projects   | 02_projects:3002          | 15s      |
 
 ### Logs
 
@@ -392,16 +503,38 @@ docker compose logs mindsdb    # Memory system
 docker compose logs caddy      # Reverse proxy
 ```
 
-### Common Issues
+---
+
+## Troubleshooting
 
 | Symptom                          | Cause                            | Fix                                      |
 |----------------------------------|----------------------------------|------------------------------------------|
 | `OPENAI_API_KEY` error           | CrewAI/LiteLLM requires it       | Set any `sk-proj-...` value in `.env`    |
 | Gemini 404 on health check       | Wrong model in `MODEL` env var   | Use `google/gemini-2.5-flash-lite`       |
-| `QdrantConfig` validation error  | Missing qdrant_config in crew.py | Ensure QDRANT_URL and QDRANT_API_KEY set |
+| `QdrantConfig` validation error  | Missing qdrant_config in crew.py | Ensure `QDRANT_URL` and `QDRANT_API_KEY` |
 | `google-genai` not available     | Missing pip extra                | `crewai[google-genai]` in pyproject.toml |
 | OOM kills                        | Under 16GB RAM                   | Check `docker stats`, increase VM size   |
 | 504 gateway timeout              | Gemini rate limit or slow agent  | Check Caddy timeout + Gemini quotas      |
+| MindsDB connection refused       | Container not ready              | `docker compose logs mindsdb`, wait      |
+| PostgreSQL permission denied     | Wrong credentials                | Match `.env.production` with compose     |
+
+---
+
+## Dependencies
+
+```toml
+crewai[litellm,tools,google-genai]==1.10.1
+minds-sdk
+qdrant-client
+psycopg2-binary>=2.9.0
+requests>=2.31.0
+redis>=5.0.0
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
+```
+
+Python: `>=3.10, <3.14`. Dockerfile base: `python:3.13-slim`.
 
 ---
 

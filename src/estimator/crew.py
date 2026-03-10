@@ -194,5 +194,5 @@ class SoftwareProjectEstimatorWithRagCrew:
             tasks=self.tasks,
             process=Process.sequential, # Sequential execution for logic, enrichment as final step
             verbose=True,
-            chat_llm=LLM(model="google/gemini-2.5-flash-lite"),
+            chat_llm=LLM(model=DEFAULT_MODEL),
         )

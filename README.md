@@ -8,7 +8,7 @@
 
 ## What it does
 
-oute-mind takes a project description and produces a complete estimation report with three cost scenarios (human-only, AI-assisted, hybrid), risk analysis, and architectural recommendations. Six specialized AI agents work in sequence, each building on the previous agent's output.
+oute-mind takes a project description and produces a complete estimation report with three cost scenarios (human-only, AI-only, hybrid), risk analysis, and architectural recommendations. Six specialized AI agents work in sequence, each building on the previous agent's output.
 
 ```
 POST /run → Agent Pipeline (90-130s) → Estimation Report (3 scenarios)
@@ -56,18 +56,16 @@ POST /run → Agent Pipeline (90-130s) → Estimation Report (3 scenarios)
 
 ## Agent Pipeline
 
-| #  | Agent                  | Role                              | Tools                                                    |
-|----|------------------------|-----------------------------------|----------------------------------------------------------|
-| 1  | Solution Architect     | Multi-modal discovery interview   | FileRead, OCR, ScrapeWebsite, PostgresTool, MindsDB      |
-| 2  | Technical Analyst      | RAG research & web validation     | Qdrant, Serper, JinaReader, PostgresTool, MindsDB        |
-| 3  | Software Architect     | Design consolidation & persist    | Qdrant, PostgresTool, MindsDB                            |
-| 4  | Cost Specialist        | 3 financial scenarios             | ScrapeWebsite, PostgresTool, MindsDB                     |
-| 5  | Reviewer & Presenter   | Client-facing review & approval   | Qdrant, Serper, PostgresTool, MindsDB                    |
-| 6  | Knowledge Specialist   | Long-term memory enrichment       | Qdrant, PostgresTool, MindsDB                            |
+| #  | Agent                  | Role                              | Tools                                                              |
+|----|------------------------|-----------------------------------|--------------------------------------------------------------------|
+| 1  | Solution Architect     | Multi-modal discovery interview   | FileRead, OCR, ScrapeWebsite, GetChecklist, SaveEstimation, StoreContext |
+| 2  | Technical Analyst      | RAG research & web validation     | QdrantVectorSearch, Serper, JinaReader, SearchHistory, SearchPatterns, RetrieveContext |
+| 3  | Software Architect     | Design consolidation & persist    | QdrantVectorSearch, SearchPatterns, SaveEstimation, StoreContext, RetrieveContext |
+| 4  | Cost Specialist        | 3 financial scenarios             | ScrapeWebsite, SaveFinancialScenario, RetrieveContext              |
+| 5  | Reviewer & Presenter   | Client-facing review & approval   | QdrantVectorSearch, Serper, SearchHistory, RetrieveContext          |
+| 6  | Knowledge Specialist   | Long-term memory enrichment       | QdrantVectorSearch, SaveEstimation, StoreContext                   |
 
-Agents 1→5 run **sequentially**. Agent 6 runs at the end to enrich the knowledge base for future estimations.
-
-Between Agent 1 and Agent 2, the system pauses for **client approval** of the discovered scope.
+Agents 1→6 run **sequentially**. Between Agent 1 and Agent 2, the system pauses for **client approval** of the discovered scope (`human_input=True`). Agent 5 also requires human input for final review.
 
 ---
 
@@ -75,10 +73,10 @@ Between Agent 1 and Agent 2, the system pauses for **client approval** of the di
 
 | Method | Endpoint                  | Description                         |
 |--------|---------------------------|-------------------------------------|
-| GET    | `/health`                 | Basic health check                  |
+| GET    | `/health`                 | Lightweight health check            |
 | GET    | `/health/services`        | All 7 backend services status       |
 | GET    | `/healthcheck`            | Visual health dashboard (HTML)      |
-| GET    | `/api/status`             | API status + crew readiness         |
+| GET    | `/api/status`             | API version + crew readiness        |
 | POST   | `/run`                    | Start async estimation              |
 | GET    | `/status/{estimation_id}` | Poll estimation progress            |
 | POST   | `/approve/{estimation_id}`| Approve scope (after Agent 1)       |
@@ -108,7 +106,7 @@ curl http://localhost:8000/status/{estimation_id}
 |-----------------|-------------------------|----------------------------------|
 | Orchestration   | CrewAI v1.10.1          | Agent pipeline management        |
 | LLM             | Gemini 2.5 Flash-Lite   | Multi-modal reasoning            |
-| Database        | PostgreSQL 16 (JSONB)   | Estimations, patterns, history   |
+| Database        | PostgreSQL 16 (JSONB)   | Checklists, history, patterns    |
 | Vector DB       | Qdrant                  | RAG semantic search              |
 | Cache/Queue     | Redis 7                 | Async job state (TTL 24h)        |
 | Memory          | MindsDB                 | Agent context synchronization    |
@@ -169,6 +167,7 @@ docker compose up -d app
 # Required
 GOOGLE_API_KEY=...                 # Gemini API
 MODEL=google/gemini-2.5-flash-lite # LLM model
+OPENAI_API_KEY=sk-proj-...        # Required by CrewAI/LiteLLM (not used for requests)
 
 # Databases (auto-generated in production)
 POSTGRES_USER=oute_prod_user
@@ -189,19 +188,20 @@ FASTAPI_WORKERS=4                  # Uvicorn workers
 
 ## Data Model
 
-```
-PostgreSQL (estimator schema)
-├── estimation_requests      # Input projects
-├── estimation_findings      # Agent discoveries
-├── estimation_costs         # 3 cost scenarios per estimation
-└── estimation_risks         # Risk assessments
+### PostgreSQL (`estimator` schema)
 
-Qdrant (vector collections)
-├── knowledge_base           # RAG documents
-├── project_patterns         # Historical patterns
-├── technical_patterns       # Tech stack patterns
-└── cost_history             # Past estimations
-```
+| Table                  | Purpose                                    |
+|------------------------|--------------------------------------------|
+| `checklists`           | Discovery checklists by phase (JSONB)      |
+| `estimation_history`   | Agent findings per project/team/phase      |
+| `patterns`             | Reusable design patterns (JSONB)           |
+| `financial_scenarios`  | Cost scenarios: human-only, ai-only, hybrid|
+
+### Qdrant
+
+| Collection       | Purpose                                     |
+|------------------|---------------------------------------------|
+| `knowledge_base` | RAG documents for semantic search           |
 
 ---
 
@@ -222,24 +222,25 @@ Qdrant (vector collections)
 oute-mind/
 ├── src/estimator/
 │   ├── config/
-│   │   ├── agents.yaml          # Agent definitions
-│   │   └── tasks.yaml           # Task definitions
+│   │   ├── agents.yaml          # 6 agent definitions (role, goal, backstory)
+│   │   └── tasks.yaml           # 6 task definitions (description, expected_output)
 │   ├── tools/
-│   │   ├── postgres_tool.py     # 5 PostgreSQL tools
-│   │   ├── jina_reader_tool.py  # Cloud web reader
-│   │   └── mindsdb_tool.py      # Context sync tools
-│   ├── crew.py                  # Pipeline orchestration
-│   ├── api.py                   # FastAPI endpoints
+│   │   ├── postgres_tool.py     # GetChecklist, SearchHistory, SearchPatterns, Save*
+│   │   ├── jina_reader_tool.py  # Cloud web reader (r.jina.ai)
+│   │   └── mindsdb_tool.py      # StoreContext, RetrieveContext
+│   ├── crew.py                  # Pipeline orchestration (6 agents, sequential)
+│   ├── api.py                   # FastAPI endpoints (9 routes)
 │   ├── dashboard.html           # Health check UI
 │   └── main.py                  # CLI entrypoint
 ├── configs/
-│   ├── Caddyfile                # Reverse proxy
-│   ├── postgres-init.sql        # DB schema
-│   └── prometheus.yml           # Metrics config
-├── app/Dockerfile               # App container
-├── docker-compose.yml           # Full stack
+│   ├── Caddyfile                # Reverse proxy routes
+│   ├── postgres-init.sql        # Schema: 4 tables + indexes + triggers
+│   └── prometheus.yml           # Metrics scrape targets
+├── app/Dockerfile               # Python 3.13-slim + uv
+├── docker-compose.yml           # 8 services + 3 oute-main services
 └── reference/
     ├── DEEPWIKI.md              # Technical deep dive
+    ├── architecture.excalidraw.md # Diagrams for Excalidraw
     └── implementation_plan.md   # Roadmap
 ```
 
@@ -249,12 +250,12 @@ oute-mind/
 
 | Problem                    | Fix                                                       |
 |----------------------------|------------------------------------------------------------|
-| OPENAI_API_KEY error       | Set any value in `.env.production` (not used, but required)|
-| Gemini 404                 | Check `MODEL` env var matches available model              |
-| CrewAI init fails          | Ensure `crewai[google-genai]` extra is installed           |
-| Qdrant connection refused  | `docker compose logs qdrant`                               |
+| OPENAI_API_KEY error       | Set any `sk-proj-...` value in `.env.production`           |
+| Gemini 404                 | Check `MODEL` env var — use `google/gemini-2.5-flash-lite` |
+| CrewAI google-genai error  | Ensure `crewai[google-genai]` extra in pyproject.toml      |
+| QdrantConfig missing       | Set `QDRANT_URL` and `QDRANT_API_KEY` env vars             |
 | Out of memory              | `docker stats` — need 16GB minimum                         |
-| 504 timeout                | Increase `FASTAPI_TIMEOUT` or check Gemini rate limits     |
+| 504 timeout                | Check Gemini API rate limits or increase Caddy timeout     |
 
 ---
 

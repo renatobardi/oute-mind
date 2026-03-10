@@ -92,7 +92,7 @@ jobs:
         run: |
           echo "✅ Deployment successful!"
           echo "🌐 Access your application at: http://${{ steps.get_ip.outputs.vm_ip }}"
-          echo "📊 Grafana at: http://${{ steps.get_ip.outputs.vm_ip }}:3001"
+          echo "📊 Grafana at: http://${{ steps.get_ip.outputs.vm_ip }}:3080"
 
       - name: Notify deployment failure
         if: failure()
