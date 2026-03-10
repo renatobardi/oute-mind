@@ -1,3 +1,20 @@
 .env
+.env.production
 __pycache__/
 .DS_Store
+.venv/
+
+# Docker volumes
+volumes/
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.log
