@@ -9,93 +9,70 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
       - name: Configure SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.GCP_VM_SSH_PRIVATE_KEY }}" | base64 -d > ~/.ssh/github-deploy
-          chmod 600 ~/.ssh/github-deploy
-          echo "${{ secrets.GCP_VM_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
+          echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" | base64 -d > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          echo "${{ secrets.VM_SSH_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
 
-      - name: Create .env file
+      - name: Test SSH connection
         run: |
-          cat > .env.production << EOF
-          GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
-          SERPER_API_KEY=${{ secrets.SERPER_API_KEY }}
-          COMPOSIO_API_KEY=${{ secrets.COMPOSIO_API_KEY }}
-          OCR_API_KEY=${{ secrets.OCR_API_KEY }}
-          QDRANT_API_KEY=${{ secrets.QDRANT_API_KEY }}
-          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
-          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-          POSTGRES_DB=oute_production
-          REDIS_PASSWORD=${{ secrets.REDIS_PASSWORD }}
-          MINDSDB_ADMIN_USER=mindsdb
-          MINDSDB_ADMIN_PASSWORD=${{ secrets.MINDSDB_ADMIN_PASSWORD }}
-          MODEL=google/gemini-2.5-flash-lite
-          FASTAPI_PORT=8000
-          FASTAPI_WORKERS=4
-          GRAFANA_PASSWORD=${{ secrets.GRAFANA_PASSWORD }}
-          EOF
+          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOSTNAME }} "echo 'SSH OK'"
 
       - name: Deploy to VM
         run: |
-          scp -i ~/.ssh/github-deploy -r . ${{ secrets.GCP_VM_USER }}@${{ secrets.GCP_VM_HOSTNAME }}:~/oute-mind/
+          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOSTNAME }} << 'EOFVM'
+            cd ~/oute-mind
 
-          ssh -i ~/.ssh/github-deploy ${{ secrets.GCP_VM_USER }}@${{ secrets.GCP_VM_HOSTNAME }} << 'DEPLOY_SCRIPT'
-          cd ~/oute-mind
-          export $(cat .env.production | xargs)
+            # Pull latest changes
+            git pull origin main
 
-          # Build e inicie os containers
-          docker-compose down
-          docker-compose build --no-cache
-          docker-compose up -d
+            # Rebuild and restart the app container
+            docker compose build oute-app
+            docker compose up -d oute-app
 
-          # Aguarde health checks
-          sleep 30
+            # Also restart any infra containers that may have failed
+            docker compose up -d
+          EOFVM
 
-          # Validar deployment
-          docker-compose ps
-          curl -f http://localhost:8000/health || exit 1
-          DEPLOY_SCRIPT
-
-      - name: Get VM IP address
-        id: get_ip
+      - name: Health check (via SSH)
         run: |
-          # Configurar Google Cloud SDK
-          echo "${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}" | base64 -d > /tmp/gcp-key.json
+          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOSTNAME }} << 'EOFVM'
+            for i in $(seq 1 20); do
+              if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+                echo "✅ oute-mind health check PASSED"
+                curl -s http://localhost:8000/health | python3 -m json.tool 2>/dev/null || true
+                break
+              fi
+              if [ "$i" -eq 20 ]; then
+                echo "❌ oute-mind health check FAILED after 20 attempts"
+                exit 1
+              fi
+              echo "  attempt ${i}/20, retrying in 3s..."
+              sleep 3
+            done
+          EOFVM
 
-          # Fazer login no GCP
-          gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
-          gcloud config set project ${{ secrets.GCP_PROJECT_ID }}
-
-          # Obter IP
-          VM_IP=$(gcloud compute addresses describe oute-mind-ip \
-            --region=us-central1 --format="get(address)")
-          echo "vm_ip=${VM_IP}" >> $GITHUB_OUTPUT
-          echo "✅ VM IP: ${VM_IP}"
-
-          # Limpar
-          rm /tmp/gcp-key.json
-
-      - name: Verify deployment
-        run: |
-          ssh -i ~/.ssh/github-deploy ${{ secrets.GCP_VM_USER }}@${{ secrets.GCP_VM_HOSTNAME }} \
-            "curl -f http://localhost:8000/health || exit 1"
-
-      - name: Notify deployment success
+      - name: Deployment success
         if: success()
         run: |
-          echo "✅ Deployment successful!"
-          echo "🌐 Access your application at: http://${{ steps.get_ip.outputs.vm_ip }}"
-          echo "📊 Grafana at: http://${{ steps.get_ip.outputs.vm_ip }}:3080"
+          echo "✅ Deployment to VM successful!"
+          echo "Services:"
+          echo "  API:         http://${{ secrets.VM_HOSTNAME }}:8000"
+          echo "  Healthcheck: http://${{ secrets.VM_HOSTNAME }}/healthcheck"
 
-      - name: Notify deployment failure
+      - name: Capture logs on failure
         if: failure()
         run: |
-          echo "❌ Deployment failed"
-          exit 1
+          echo "❌ Deployment FAILED — capturing container logs..."
+          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOSTNAME }} << 'EOFVM'
+            cd ~/oute-mind
+            echo "=== Container Status ==="
+            docker compose ps
+            echo "=== oute-app Logs ==="
+            docker compose logs --tail=50 oute-app 2>&1 || true
+          EOFVM
