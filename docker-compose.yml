@@ -81,8 +81,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # Jina Reader — uses cloud API (https://r.jina.ai) instead of self-hosted
-  # No container needed. Set JINA_READER_URL env var to use a self-hosted instance.
+  # Jina Reader — uses cloud API (https://r.jina.ai), no container needed
 
   # FastAPI - Main application
   app:

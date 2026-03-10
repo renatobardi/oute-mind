@@ -20,7 +20,7 @@ Este documento detalha as etapas técnicas para transformar o planejamento atual
 
 - [x] **Desenvolvimento de Ferramentas Customizadas**:
     - [x] `PostgresTool`: 5 tools (GetChecklist, SearchHistory, SearchPatterns, SaveEstimation, SaveFinancialScenario)
-    - [x] `JinaReaderTool`: Wrapper para Jina Reader local (retorna markdown limpo)
+    - [x] `JinaReaderTool`: Wrapper para Jina Reader cloud API (r.jina.ai, retorna markdown limpo)
     - [x] `MindsDBTool`: StoreContext e RetrieveContext para sincronismo entre agentes
 - [x] **Refinamento de Prompts**: Agentes e tasks com instruções step-by-step referenciando tools por nome
 
