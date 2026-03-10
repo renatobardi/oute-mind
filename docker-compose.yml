@@ -109,26 +109,20 @@ services:
     build:
       context: .
       dockerfile: app/Dockerfile
+      args:
+        OPENAI_API_KEY_BUILD: ${OPENAI_API_KEY}
     container_name: oute-app
+    env_file:
+      - .env.production
     environment:
-      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
-      SERPER_API_KEY: ${SERPER_API_KEY}
-      COMPOSIO_API_KEY: ${COMPOSIO_API_KEY}
-      OCR_API_KEY: ${OCR_API_KEY}
-      QDRANT_API_KEY: ${QDRANT_API_KEY}
+      # Additional config not in .env.production
       QDRANT_URL: http://qdrant:6333
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
-      REDIS_PASSWORD: ${REDIS_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: 6379
-      MINDSDB_API_KEY: ${MINDSDB_ADMIN_PASSWORD}
       MINDSDB_HOST: mindsdb
       MINDSDB_PORT: 47334
-      MODEL: google/gemini-2.0-flash
       FASTAPI_PORT: 8000
       FASTAPI_WORKERS: 4
     ports:

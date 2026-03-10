@@ -2,17 +2,33 @@
 """FastAPI wrapper for CrewAI software estimator"""
 
 import os
+from dotenv import load_dotenv
+
+# Load environment variables FIRST (before any other imports)
+# Try .env.production first, then .env
+_env_path = "/app/.env.production" if os.path.exists("/app/.env.production") else ".env"
+load_dotenv(_env_path, override=True)
+
+# Explicitly ensure OPENAI_API_KEY is set from file
+# This is required for CrewAI/LiteLLM to initialize (even though we use Google Gemini)
+if "OPENAI_API_KEY" not in os.environ or not os.environ.get("OPENAI_API_KEY"):
+    try:
+        with open(_env_path, 'r') as f:
+            for line in f:
+                if line.startswith('OPENAI_API_KEY='):
+                    key_value = line.strip().split('=', 1)[1] if '=' in line else None
+                    if key_value:
+                        os.environ['OPENAI_API_KEY'] = key_value
+                        break
+    except Exception as e:
+        print(f"Warning: Could not read OPENAI_API_KEY from {_env_path}: {e}")
+
+# Now import the crew after env vars are loaded
 import sys
 import uvicorn
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from dotenv import load_dotenv
-
-# Import the crew
 from estimator.crew import SoftwareProjectEstimatorWithRagCrew
-
-# Load environment variables
-load_dotenv()
 
 # Create FastAPI app
 app = FastAPI(

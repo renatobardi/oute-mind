@@ -22,6 +22,11 @@ RUN uv pip install --system -r pyproject.toml
 # Add src to Python path
 ENV PYTHONPATH=/app/src:$PYTHONPATH
 
+# Set OPENAI_API_KEY from build arg (required by CrewAI/LiteLLM for initialization)
+# Note: This key is NOT used for actual LLM requests (uses google/gemini-1.5-flash only)
+ARG OPENAI_API_KEY_BUILD=""
+ENV OPENAI_API_KEY=${OPENAI_API_KEY_BUILD:-sk-proj-placeholder}
+
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1

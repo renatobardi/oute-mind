@@ -1,14 +1,36 @@
 import os
+from dotenv import load_dotenv
+
+# Load environment variables (try .env.production first, then .env)
+_env_path = "/app/.env.production" if os.path.exists("/app/.env.production") else ".env"
+load_dotenv(_env_path, override=True)
+
+# Explicitly ensure OPENAI_API_KEY is set from file before importing CrewAI
+# Required for LiteLLM provider initialization (key won't be used for actual requests)
+if "OPENAI_API_KEY" not in os.environ or not os.environ.get("OPENAI_API_KEY"):
+    try:
+        with open(_env_path, 'r') as f:
+            for line in f:
+                if line.startswith('OPENAI_API_KEY='):
+                    key_value = line.strip().split('=', 1)[1] if '=' in line else None
+                    if key_value:
+                        os.environ['OPENAI_API_KEY'] = key_value
+                        break
+    except Exception as e:
+        print(f"Warning: Could not read OPENAI_API_KEY from {_env_path}: {e}")
 
 from crewai import LLM
 from crewai import Agent, Crew, Process, Task
 from crewai.project import CrewBase, agent, crew, task
+
+# Get model from environment or default
+DEFAULT_MODEL = os.getenv("MODEL", "google/gemini-1.5-flash")
+LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.7"))
 from crewai_tools import (
 	FileReadTool,
 	OCRTool,
 	AIMindTool,
 	ScrapeWebsiteTool,
-	ComposioTool,
 	QdrantVectorSearchTool,
 	SerperDevTool
 )
@@ -25,14 +47,13 @@ class SoftwareProjectEstimatorWithRagCrew:
         return Agent(
             config=self.agents_config["software_architecture_interviewer"], # type: ignore[index]
             tools=[
-                FileReadTool(), 
-                OCRTool(), 
-                ComposioTool(), 
-                AIMindTool(), 
+                FileReadTool(),
+                OCRTool(),
+                AIMindTool(),
                 ScrapeWebsiteTool()
             ],
             verbose=True,
-            llm=LLM(model="google/gemini-2.0-flash", temperature=0.7),
+            llm=LLM(model=DEFAULT_MODEL, temperature=LLM_TEMPERATURE),
         )
 
     @agent
@@ -47,7 +68,7 @@ class SoftwareProjectEstimatorWithRagCrew:
                 # PostgresqlTool(), # Using JSONB for NoSQL patterns
             ],
             verbose=True,
-            llm=LLM(model="google/gemini-2.0-flash", temperature=0.7),
+            llm=LLM(model=DEFAULT_MODEL, temperature=LLM_TEMPERATURE),
         )
 
     @agent
@@ -60,7 +81,7 @@ class SoftwareProjectEstimatorWithRagCrew:
                 # PostgresqlTool(), # To be implemented
             ],
             verbose=True,
-            llm=LLM(model="google/gemini-2.0-flash", temperature=0.7),
+            llm=LLM(model=DEFAULT_MODEL, temperature=LLM_TEMPERATURE),
         )
 
     @agent
@@ -69,7 +90,7 @@ class SoftwareProjectEstimatorWithRagCrew:
             config=self.agents_config["cost_optimization_specialist"], # type: ignore[index]
             tools=[ScrapeWebsiteTool()], # For GCP/AWS/Azure pricing
             verbose=True,
-            llm=LLM(model="google/gemini-2.0-flash", temperature=0.7),
+            llm=LLM(model=DEFAULT_MODEL, temperature=LLM_TEMPERATURE),
         )
 
     @agent
@@ -82,7 +103,7 @@ class SoftwareProjectEstimatorWithRagCrew:
                 # PostgresqlTool(), # To be implemented
             ],
             verbose=True,
-            llm=LLM(model="google/gemini-2.0-flash", temperature=0.7),
+            llm=LLM(model=DEFAULT_MODEL, temperature=LLM_TEMPERATURE),
         )
 
     @agent
@@ -91,7 +112,7 @@ class SoftwareProjectEstimatorWithRagCrew:
             config=self.agents_config["knowledge_management_specialist"], # type: ignore[index]
             tools=[QdrantVectorSearchTool(), AIMindTool()],
             verbose=True,
-            llm=LLM(model="google/gemini-2.0-flash", temperature=0.7),
+            llm=LLM(model=DEFAULT_MODEL, temperature=LLM_TEMPERATURE),
         )
 
     # --- Tasks ---

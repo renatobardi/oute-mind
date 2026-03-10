@@ -3,10 +3,6 @@
     encode gzip
 
     # Reverse proxy para FastAPI
-    reverse_proxy /api* http://app:8000 {
-        header_uri /api /
-    }
-
     reverse_proxy /* http://app:8000
 
     # Security headers
