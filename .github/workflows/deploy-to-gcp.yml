@@ -28,12 +28,15 @@ jobs:
           ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOSTNAME }} << 'EOFVM'
             cd ~/oute-mind
 
+            # Discard any local modifications to tracked files
+            git checkout -- .
+
             # Pull latest changes
             git pull origin main
 
-            # Rebuild and restart the app container
-            docker compose build oute-app
-            docker compose up -d oute-app
+            # Rebuild and restart the app container (service name is "app")
+            docker compose build app
+            docker compose up -d app
 
             # Also restart any infra containers that may have failed
             docker compose up -d
@@ -74,5 +77,5 @@ jobs:
             echo "=== Container Status ==="
             docker compose ps
             echo "=== oute-app Logs ==="
-            docker compose logs --tail=50 oute-app 2>&1 || true
+            docker compose logs --tail=50 app 2>&1 || true
           EOFVM
