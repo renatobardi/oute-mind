@@ -24,7 +24,7 @@ from crewai import Agent, Crew, Process, Task
 from crewai.project import CrewBase, agent, crew, task
 
 # Get model from environment or default
-DEFAULT_MODEL = os.getenv("MODEL", "google/gemini-1.5-flash")
+DEFAULT_MODEL = os.getenv("MODEL", "google/gemini-2.5-flash-lite")
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.7"))
 from crewai_tools import (
 	FileReadTool,
@@ -186,5 +186,5 @@ class SoftwareProjectEstimatorWithRagCrew:
             tasks=self.tasks,
             process=Process.sequential, # Sequential execution for logic, enrichment as final step
             verbose=True,
-            chat_llm=LLM(model="google/gemini-1.5-flash"),
+            chat_llm=LLM(model="google/gemini-2.5-flash-lite"),
         )

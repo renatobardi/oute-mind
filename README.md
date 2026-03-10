@@ -34,7 +34,7 @@ oute-mind/
 
 ## ⚡ Diferenciais Tecnológicos
 
-*   **Gemini 1.5 Flash**: Motor de inteligência multi-modal nativo para análise de mídias ricas.
+*   **Gemini 2.5 Flash-Lite**: Motor de inteligência multi-modal nativo para análise de mídias ricas.
 *   **PostgreSQL + JSONB**: Abordagem híbrida para dados relacionais e flexibilidade de padrões NoSQL.
 *   **RAG Multi-tenant**: Isolamento lógico de conhecimento por Time, Usuário e Projeto.
 *   **Jina.ai Integration**: Leitura otimizada de documentação web para eliminar alucinações técnicas.
@@ -42,7 +42,7 @@ oute-mind/
 ---
 
 ## 📈 Deployment & POC
-O projeto está configurado para um deploy **Self-hosted em VM dedicada** via Docker Compose, utilizando o Google Gemini 1.5 Flash como motor de inteligência externo.
+O projeto está configurado para um deploy **Self-hosted em VM dedicada** via Docker Compose, utilizando o Google Gemini 2.5 Flash-Lite como motor de inteligência externo.
 
 ---
 
@@ -164,7 +164,7 @@ MINDS_API_KEY=local-mindsdb-not-used # SDK compatibility
 
 ### Aplicação
 ```bash
-MODEL=google/gemini-1.5-flash        # Modelo LLM a usar
+MODEL=google/gemini-2.5-flash-lite        # Modelo LLM a usar
 LLM_TEMPERATURE=0.7                  # Nível de criatividade
 FASTAPI_PORT=8000                    # Porta da API
 FASTAPI_WORKERS=4                    # Processos Uvicorn

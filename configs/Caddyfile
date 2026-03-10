@@ -2,12 +2,27 @@
 :80 {
     encode gzip
 
-    # Reverse proxy para FastAPI
-    reverse_proxy /* http://app:8000
-
     # Security headers
     header X-Frame-Options DENY
     header X-Content-Type-Options nosniff
     header X-XSS-Protection "1; mode=block"
     header Referrer-Policy no-referrer
+
+    # oute-main Dashboard
+    handle /dashboard* {
+        reverse_proxy http://00_dashboard:3000
+    }
+
+    # oute-main Auth API
+    handle /api/auth* {
+        reverse_proxy http://01_auth-profile:3001
+    }
+
+    # oute-main Projects API
+    handle /api/projects* {
+        reverse_proxy http://02_projects:3002
+    }
+
+    # FastAPI (oute-mind root)
+    reverse_proxy /* http://app:8000
 }

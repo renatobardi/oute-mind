@@ -399,8 +399,10 @@ async def health_services():
     # Google Gemini
     def check_gemini():
         api_key = os.getenv("GOOGLE_API_KEY", "")
+        # Extract model name from MODEL env var (format: "google/gemini-2.5-flash-lite" -> "gemini-2.5-flash-lite")
+        model = os.getenv("MODEL", "gemini-2.5-flash-lite").split("/")[-1]
         resp = http_requests.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}",
+            f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}",
             json={"contents": [{"parts": [{"text": "Reply with only: OK"}]}]},
             timeout=10,
         )
