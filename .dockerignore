@@ -1,0 +1,16 @@
+volumes/
+logs/
+.git/
+.github/
+.env
+.env.production.example
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+dist/
+build/
+*.egg-info/
+.DS_Store
