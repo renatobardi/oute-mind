@@ -34,11 +34,14 @@ jobs:
             # Pull latest changes
             git pull origin main
 
+            # Ensure .env points to .env.production for docker compose
+            ln -sf .env.production .env
+
             # Rebuild and restart the app container (service name is "app")
             docker compose build app
             docker compose up -d app
 
-            # Also restart any infra containers that may have failed
+            # Also ensure infra containers are running
             docker compose up -d
           EOFVM
 
