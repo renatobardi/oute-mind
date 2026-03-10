@@ -1,37 +1,39 @@
 # Caddy - Acesso via IP (sem domínio)
 :80 {
-    encode gzip
+	encode gzip
 
-    # Security headers
-    header X-Frame-Options DENY
-    header X-Content-Type-Options nosniff
-    header X-XSS-Protection "1; mode=block"
-    header Referrer-Policy no-referrer
+	# Security headers
+	header X-Frame-Options DENY
+	header X-Content-Type-Options nosniff
+	header X-XSS-Protection "1; mode=block"
+	header Referrer-Policy no-referrer
 
-    # oute-main Dashboard
-    handle_path /dashboard/* {
-        reverse_proxy http://00_dashboard:3000
-    }
-    handle_path /dashboard {
-        reverse_proxy http://00_dashboard:3000
-    }
+	# oute-main Dashboard (path-stripped: /dashboard/x → /x)
+	handle_path /dashboard/* {
+		reverse_proxy http://00_dashboard:3000
+	}
+	handle_path /dashboard {
+		reverse_proxy http://00_dashboard:3000
+	}
 
-    # oute-main Auth API
-    handle_path /api/auth/* {
-        reverse_proxy http://01_auth-profile:3001
-    }
-    handle_path /api/auth {
-        reverse_proxy http://01_auth-profile:3001
-    }
+	# oute-main Auth API (no strip: /api/auth/* matches SvelteKit routes)
+	handle /api/auth/* {
+		reverse_proxy http://01_auth-profile:3001
+	}
+	handle /api/auth {
+		reverse_proxy http://01_auth-profile:3001
+	}
 
-    # oute-main Projects API
-    handle_path /api/projects/* {
-        reverse_proxy http://02_projects:3002
-    }
-    handle_path /api/projects {
-        reverse_proxy http://02_projects:3002
-    }
+	# oute-main Projects API (no strip: SvelteKit routes start with /api/projects)
+	handle /api/projects/* {
+		reverse_proxy http://02_projects:3002
+	}
+	handle /api/projects {
+		reverse_proxy http://02_projects:3002
+	}
 
-    # FastAPI (oute-mind root)
-    reverse_proxy /* http://app:8000
+	# FastAPI (oute-mind catch-all)
+	handle {
+		reverse_proxy http://app:8000
+	}
 }
