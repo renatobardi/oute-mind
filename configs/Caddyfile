@@ -9,17 +9,26 @@
     header Referrer-Policy no-referrer
 
     # oute-main Dashboard
-    handle /dashboard* {
+    handle_path /dashboard/* {
+        reverse_proxy http://00_dashboard:3000
+    }
+    handle_path /dashboard {
         reverse_proxy http://00_dashboard:3000
     }
 
     # oute-main Auth API
-    handle /api/auth* {
+    handle_path /api/auth/* {
+        reverse_proxy http://01_auth-profile:3001
+    }
+    handle_path /api/auth {
         reverse_proxy http://01_auth-profile:3001
     }
 
     # oute-main Projects API
-    handle /api/projects* {
+    handle_path /api/projects/* {
+        reverse_proxy http://02_projects:3002
+    }
+    handle_path /api/projects {
         reverse_proxy http://02_projects:3002
     }
 
