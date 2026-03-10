@@ -25,7 +25,7 @@ The system is designed for:
 | **Relational DB** | PostgreSQL | v16 | Project data, estimation history, framework patterns (JSONB) |
 | **Memory System** | MindsDB | Latest | Agent synchronization and state management |
 | **Cache/Queue** | Redis | v7 | Session caching, async task queuing |
-| **Web Scraping** | Jina Reader | Local | Documentation extraction (self-hosted) |
+| **Web Scraping** | Jina Reader | Cloud API | Documentation extraction (r.jina.ai) |
 | **API** | FastAPI | Latest | REST endpoints with async support |
 | **Reverse Proxy** | Caddy | Latest | HTTP/2, auto TLS, load balancing |
 | **Containers** | Docker + Compose | v2+ | Multi-arch deployment (ARM + Intel) |
@@ -127,7 +127,7 @@ Utilizaremos **Docker Compose** para orquestrar todos os serviços localmente na
 *   **MindsDB**: Servidor de IA local para sincronismo e memória.
 *   **Qdrant**: Engine de busca vetorial local.
 *   **Redis**: Sistema de gerenciamento de filas para a API.
-*   **Jina Utility**: Ferramentas de suporte local para leitura de logs.
+*   **Jina Reader**: Cloud API (r.jina.ai) para leitura otimizada de documentação web.
 
 ### Acesso Externo
 *   **Gemini 1.5 Flash**: O processamento de LLM e multi-modalidade será feito via **API na Internet** (Google Cloud AI Services). Esta é a única saída de rede necessária para o funcionamento da inteligência central.

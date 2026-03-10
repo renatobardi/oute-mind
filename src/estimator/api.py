@@ -389,13 +389,9 @@ async def health_services():
         return resp.json()
     checks.append(_check_service("mindsdb", check_mindsdb))
 
-    # Jina Reader (cloud API)
+    # Jina Reader (cloud API: r.jina.ai)
     def check_jina():
-        jina_url = os.getenv("JINA_READER_URL", "")
-        if jina_url:
-            resp = http_requests.get(jina_url, params={"url": "https://example.com"}, timeout=10)
-        else:
-            resp = http_requests.get("https://r.jina.ai/https://example.com", headers={"Accept": "text/markdown"}, timeout=10)
+        resp = http_requests.get("https://r.jina.ai/https://example.com", headers={"Accept": "text/markdown"}, timeout=10)
         resp.raise_for_status()
         return f"cloud API ({len(resp.text)} chars)"
     checks.append(_check_service("jina_reader", check_jina))
