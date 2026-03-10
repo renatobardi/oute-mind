@@ -81,28 +81,8 @@ services:
       timeout: 5s
       retries: 5
 
-  # Jina Reader - Web scraping local
-  jina-reader:
-    image: ghcr.io/intergalacticalvariable/reader:latest
-    container_name: oute-jina-reader
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./volumes/jina-cache:/app/local-storage
-    deploy:
-      resources:
-        limits:
-          memory: 2G
-          cpus: '1'
-    networks:
-      - oute-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+  # Jina Reader — uses cloud API (https://r.jina.ai) instead of self-hosted
+  # No container needed. Set JINA_READER_URL env var to use a self-hosted instance.
 
   # FastAPI - Main application
   app:
@@ -135,8 +115,6 @@ services:
       qdrant:
         condition: service_started
       mindsdb:
-        condition: service_started
-      jina-reader:
         condition: service_started
     networks:
       - oute-network
@@ -174,7 +152,7 @@ services:
     image: grafana/grafana:latest
     container_name: oute-grafana
     ports:
-      - "3001:3000"
+      - "3080:3000"
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
@@ -207,6 +185,82 @@ services:
     restart: unless-stopped
     depends_on:
       - app
+
+  # oute-main services (Dashboard, Auth, Projects APIs)
+
+  00_dashboard:
+    build:
+      context: ../oute-main
+      dockerfile: packages/00_dashboard/Dockerfile
+    container_name: oute-dashboard
+    ports:
+      - "3020:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://app-user:${POSTGRES_PASSWORD}@postgres:5432/oute_main
+      - AUTH_SERVICE_URL=http://01_auth-profile:3001
+      - PROJECTS_SERVICE_URL=http://02_projects:3002
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - oute-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  01_auth-profile:
+    build:
+      context: ../oute-main
+      dockerfile: packages/01_auth-profile/Dockerfile
+    container_name: oute-auth-profile
+    ports:
+      - "3021:3001"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://app-user:${POSTGRES_PASSWORD}@postgres:5432/oute_main
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - oute-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  02_projects:
+    build:
+      context: ../oute-main
+      dockerfile: packages/02_projects/Dockerfile
+    container_name: oute-projects
+    ports:
+      - "3022:3002"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://app-user:${POSTGRES_PASSWORD}@postgres:5432/oute_main
+      - AUTH_SERVICE_URL=http://01_auth-profile:3001
+      - JWT_SECRET=${JWT_SECRET}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - oute-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
 
 networks:
   oute-network:
