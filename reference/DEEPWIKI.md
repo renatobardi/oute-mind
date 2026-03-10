@@ -74,6 +74,21 @@ Client Request → 6-Agent Pipeline (90-130s) → 3 Cost Scenarios + Risks + Arc
 
 Additional `oute-main` services (when available): `oute-dashboard` (:3020), `oute-auth-profile` (:3021), `oute-projects` (:3022).
 
+### Web Consoles & UIs
+
+| Service        | Console                | URL                              |
+|----------------|------------------------|----------------------------------|
+| FastAPI        | Swagger UI             | `http://<IP>/docs`               |
+| FastAPI        | Health Dashboard       | `http://<IP>/healthcheck`        |
+| Grafana        | Monitoring Dashboards  | `http://<IP>:3080`               |
+| Prometheus     | Metrics Explorer       | `http://<IP>:9090`               |
+| MindsDB        | SQL Editor             | `http://<IP>:47334`              |
+| Qdrant         | Vector DB Dashboard    | `http://<IP>:6333/dashboard`     |
+| PostgreSQL     | — (no web UI)          | `psql -h <IP> -p 5432`          |
+| Redis          | — (no web UI)          | `redis-cli -h <IP> -p 6379`     |
+
+> PostgreSQL and Redis have no built-in web UI. Use pgAdmin or RedisInsight for visual access.
+
 ### Caddy Routing
 
 | Path             | Target                     |
