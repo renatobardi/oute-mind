@@ -424,8 +424,8 @@ async def health_services():
     return {"status": "healthy" if all_ok else "degraded", "services": checks}
 
 
-@app.get("/dashboard", response_class=HTMLResponse)
-async def dashboard():
+@app.get("/healthcheck", response_class=HTMLResponse)
+async def healthcheck_page():
     """Service health dashboard."""
     html_path = os.path.join(os.path.dirname(__file__), "dashboard.html")
     with open(html_path, "r") as f:

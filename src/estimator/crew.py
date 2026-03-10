@@ -33,6 +33,14 @@ from crewai_tools import (
 	QdrantVectorSearchTool,
 	SerperDevTool
 )
+from crewai_tools.tools.qdrant_vector_search_tool.qdrant_search_tool import QdrantConfig
+
+# Qdrant configuration from environment
+QDRANT_CONFIG = QdrantConfig(
+    qdrant_url=os.getenv("QDRANT_URL", "http://qdrant:6333"),
+    qdrant_api_key=os.getenv("QDRANT_API_KEY"),
+    collection_name=os.getenv("QDRANT_COLLECTION", "knowledge_base"),
+)
 from estimator.tools import (
 	GetChecklistTool,
 	SearchEstimationHistoryTool,
@@ -72,7 +80,7 @@ class SoftwareProjectEstimatorWithRagCrew:
         return Agent(
             config=self.agents_config["technical_research_analyst_with_rag"], # type: ignore[index]
             tools=[
-                QdrantVectorSearchTool(),
+                QdrantVectorSearchTool(qdrant_config=QDRANT_CONFIG),
                 SerperDevTool(),
                 JinaReaderTool(),
                 SearchEstimationHistoryTool(),
@@ -88,7 +96,7 @@ class SoftwareProjectEstimatorWithRagCrew:
         return Agent(
             config=self.agents_config["software_architect"], # type: ignore[index]
             tools=[
-                QdrantVectorSearchTool(),
+                QdrantVectorSearchTool(qdrant_config=QDRANT_CONFIG),
                 SearchPatternsTool(),
                 SaveEstimationTool(),
                 StoreContextTool(),
@@ -116,7 +124,7 @@ class SoftwareProjectEstimatorWithRagCrew:
         return Agent(
             config=self.agents_config["reviewer_and_presenter"], # type: ignore[index]
             tools=[
-                QdrantVectorSearchTool(),
+                QdrantVectorSearchTool(qdrant_config=QDRANT_CONFIG),
                 SerperDevTool(),
                 SearchEstimationHistoryTool(),
                 RetrieveContextTool(),
@@ -130,7 +138,7 @@ class SoftwareProjectEstimatorWithRagCrew:
         return Agent(
             config=self.agents_config["knowledge_management_specialist"], # type: ignore[index]
             tools=[
-                QdrantVectorSearchTool(),
+                QdrantVectorSearchTool(qdrant_config=QDRANT_CONFIG),
                 SaveEstimationTool(),
                 StoreContextTool(),
             ],
