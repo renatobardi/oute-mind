@@ -9,8 +9,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - "5432:5432"
+    expose:
+      - "5432"
     volumes:
       - ./volumes/postgres:/var/lib/postgresql/data
       - ./configs/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -28,8 +28,8 @@ services:
     image: redis:7-alpine
     container_name: oute-redis
     command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes"]
-    ports:
-      - "6379:6379"
+    expose:
+      - "6379"
     volumes:
       - ./volumes/redis:/data
     networks:
@@ -47,9 +47,9 @@ services:
     container_name: oute-qdrant
     environment:
       QDRANT_API_KEY: ${QDRANT_API_KEY}
-    ports:
-      - "6333:6333"
-      - "6334:6334"
+    expose:
+      - "6333"
+      - "6334"
     volumes:
       - ./volumes/qdrant:/qdrant/storage
     networks:
@@ -67,9 +67,9 @@ services:
     container_name: oute-mindsdb
     environment:
       MINDSDB_STORAGE_DIR: /var/lib/mindsdb
-    ports:
-      - "47334:47334"
-      - "47335:47335"
+    expose:
+      - "47334"
+      - "47335"
     volumes:
       - ./volumes/mindsdb:/var/lib/mindsdb
     networks:
@@ -104,8 +104,8 @@ services:
       MINDSDB_PORT: 47334
       FASTAPI_PORT: 8000
       FASTAPI_WORKERS: 4
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     depends_on:
       postgres:
         condition: service_started
@@ -129,8 +129,8 @@ services:
   prometheus:
     image: prom/prometheus:latest
     container_name: oute-prometheus
-    ports:
-      - "9090:9090"
+    expose:
+      - "9090"
     volumes:
       - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml
       - ./volumes/prometheus:/prometheus
@@ -150,8 +150,8 @@ services:
   grafana:
     image: grafana/grafana:latest
     container_name: oute-grafana
-    ports:
-      - "3080:3000"
+    expose:
+      - "3000"
     environment:
       GF_SECURITY_ADMIN_USER: admin
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
@@ -175,6 +175,7 @@ services:
     container_name: oute-caddy
     ports:
       - "80:80"
+      - "443:443"
     volumes:
       - ./configs/Caddyfile:/etc/caddy/Caddyfile
       - ./volumes/caddy-data:/data
@@ -192,8 +193,8 @@ services:
       context: ../oute-main
       dockerfile: packages/00_dashboard/Dockerfile
     container_name: oute-dashboard
-    ports:
-      - "3020:3000"
+    expose:
+      - "3000"
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://app-user:${POSTGRES_PASSWORD}@postgres:5432/oute_main
@@ -217,8 +218,8 @@ services:
       context: ../oute-main
       dockerfile: packages/01_auth-profile/Dockerfile
     container_name: oute-auth-profile
-    ports:
-      - "3021:3001"
+    expose:
+      - "3001"
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://app-user:${POSTGRES_PASSWORD}@postgres:5432/oute_main
@@ -241,8 +242,8 @@ services:
       context: ../oute-main
       dockerfile: packages/02_projects/Dockerfile
     container_name: oute-projects
-    ports:
-      - "3022:3002"
+    expose:
+      - "3002"
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://app-user:${POSTGRES_PASSWORD}@postgres:5432/oute_main

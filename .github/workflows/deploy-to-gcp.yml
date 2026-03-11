@@ -49,9 +49,9 @@ jobs:
         run: |
           ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOSTNAME }} << 'EOFVM'
             for i in $(seq 1 20); do
-              if curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+              if docker exec oute-app curl -sf http://localhost:8000/health > /dev/null 2>&1; then
                 echo "✅ oute-mind health check PASSED"
-                curl -s http://localhost:8000/health | python3 -m json.tool 2>/dev/null || true
+                docker exec oute-app curl -s http://localhost:8000/health | python3 -m json.tool 2>/dev/null || true
                 break
               fi
               if [ "$i" -eq 20 ]; then
@@ -68,8 +68,8 @@ jobs:
         run: |
           echo "✅ Deployment to VM successful!"
           echo "Services:"
-          echo "  API:         http://${{ secrets.VM_HOSTNAME }}:8000"
-          echo "  Healthcheck: http://${{ secrets.VM_HOSTNAME }}/healthcheck"
+          echo "  App:         http://${{ secrets.VM_HOSTNAME }} (via Caddy)"
+          echo "  Healthcheck: http://${{ secrets.VM_HOSTNAME }}/caddy-health"
 
       - name: Capture logs on failure
         if: failure()
