@@ -66,6 +66,8 @@ echo "IP alocado: $VM_IP"
 
 ### 1.5 Configurar Firewall
 
+Only ports 22 (SSH), 80 (HTTP), 443 (HTTPS), and ICMP are allowed. All other ports (database, services, monitoring) are blocked externally. Services communicate internally via Docker network.
+
 ```bash
 # HTTP
 gcloud compute firewall-rules create allow-http-oute-mind \
@@ -73,12 +75,26 @@ gcloud compute firewall-rules create allow-http-oute-mind \
   --source-ranges=0.0.0.0/0 \
   --target-tags=http-server || echo "Regra pode já existir"
 
-# SSH (seu IP)
+# HTTPS
+gcloud compute firewall-rules create allow-https-oute-mind \
+  --allow=tcp:443 \
+  --source-ranges=0.0.0.0/0 \
+  --target-tags=https-server || echo "Regra pode já existir"
+
+# SSH (seu IP only)
 gcloud compute firewall-rules create allow-ssh-oute-mind \
   --allow=tcp:22 \
   --source-ranges=${MY_PUBLIC_IP}/32 \
   --target-tags=ssh-server || echo "Regra pode já existir"
+
+# ICMP (ping)
+gcloud compute firewall-rules create allow-icmp-oute-mind \
+  --allow=icmp \
+  --source-ranges=0.0.0.0/0 \
+  --target-tags=http-server || echo "Regra pode já existir"
 ```
+
+> **Security note**: Previous rules exposing MindsDB, RDP, and default SSH have been removed. No direct access to database ports (5432, 6379, 6333) or service ports (8000, 9090, 3080) is allowed from external networks.
 
 ## 🔧 Fase 2: Setup da VM (3-5 minutos)
 
@@ -173,19 +189,26 @@ curl http://<IP>/health
 curl http://<IP>/api/status
 
 # Acessar no navegador
-http://<IP>            # API FastAPI
-http://<IP>:3001       # Grafana
-http://<IP>:9090       # Prometheus
+http://<IP>            # Landing page (via Caddy)
+http://<IP>/docs       # API Swagger UI (via Caddy)
 ```
+
+> **Note**: Grafana, Prometheus, and Qdrant are internal-only (not exposed on host ports). Access via SSH tunnel:
+> ```bash
+> gcloud compute ssh oute-mind --zone=us-central1-a -- -L 3080:grafana:3000
+> # Then open http://localhost:3080
+> ```
 
 ## 📊 Acessar Serviços
 
-| Serviço | URL | Padrão |
-|---------|-----|--------|
-| FastAPI | `http://<IP>` | Reverse proxy via Caddy |
-| Grafana | `http://<IP>:3001` | admin/admin (depois alterado) |
-| Prometheus | `http://<IP>:9090` | Métricas |
-| Qdrant | `http://<IP>:6333` | Vector DB |
+| Serviço | Acesso | Notas |
+|---------|--------|-------|
+| FastAPI | `http://<IP>/health`, `http://<IP>/docs` | Via Caddy reverse proxy (port 80) |
+| Grafana | Internal only | Access via SSH tunnel (`-L 3080:grafana:3000`) |
+| Prometheus | Internal only | Access via SSH tunnel (`-L 9090:prometheus:9090`) |
+| Qdrant | Internal only | Access via `docker exec` or SSH tunnel |
+
+All services use `expose` (Docker internal network only). Only Caddy exposes ports 80 and 443 on the host.
 
 ## 🔍 Troubleshooting
 
@@ -195,9 +218,9 @@ http://<IP>:9090       # Prometheus
 gcloud compute ssh ${VM_NAME} --zone=${GCP_ZONE}
 
 # Dentro da VM
-docker-compose ps                   # Ver status dos containers
-docker-compose logs -f app          # Ver logs da aplicação
-docker-compose logs -f caddy        # Ver logs do Caddy
+docker compose ps                   # Ver status dos containers
+docker compose logs -f app          # Ver logs da aplicação
+docker compose logs -f caddy        # Ver logs do Caddy
 ```
 
 ### Obter IP novamente
@@ -212,7 +235,7 @@ gcloud compute addresses describe oute-mind-ip \
 ```bash
 gcloud compute ssh ${VM_NAME} --zone=${GCP_ZONE} << 'EOF'
 cd ~/oute-mind
-docker-compose restart
+docker compose restart
 EOF
 ```
 
