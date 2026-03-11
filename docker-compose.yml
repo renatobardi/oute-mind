@@ -207,7 +207,7 @@ services:
       - oute-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/dashboard/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -298,7 +298,7 @@ services:
       - oute-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3002/health || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3002/chat/health || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5

@@ -8,36 +8,22 @@
 	header X-XSS-Protection "1; mode=block"
 	header Referrer-Policy no-referrer
 
-	# oute-main Dashboard (path-stripped: /dashboard/x → /x)
-	handle_path /dashboard/* {
-		reverse_proxy http://00_dashboard:3000
-	}
-	handle_path /dashboard {
+	# oute-main Dashboard (SvelteKit base: /dashboard)
+	handle /dashboard* {
 		reverse_proxy http://00_dashboard:3000
 	}
 
-	# oute-main Auth API (no strip: /api/auth/* matches SvelteKit routes)
-	handle /api/auth/* {
-		reverse_proxy http://01_auth-profile:3001
-	}
-	handle /api/auth {
+	# oute-main Auth API
+	handle /api/auth* {
 		reverse_proxy http://01_auth-profile:3001
 	}
 
-	# oute-main Projects API (no strip: SvelteKit routes start with /api/projects)
-	handle /api/projects/* {
-		reverse_proxy http://02_projects:3002
-	}
-	handle /api/projects {
+	# oute-main Projects API
+	handle /api/projects* {
 		reverse_proxy http://02_projects:3002
 	}
 
-	# Landing page (99_home) - root path
-	handle / {
-		reverse_proxy http://99_home:3003
-	}
-
-	# Chat interface (03_interview)
+	# Chat interface (SvelteKit base: /chat)
 	handle /chat* {
 		reverse_proxy http://03_interview:3002
 	}
@@ -47,8 +33,43 @@
 		respond "OK" 200
 	}
 
-	# FastAPI (oute-mind catch-all)
-	handle {
+	# FastAPI (oute-mind) - explicit routes
+	handle /health {
 		reverse_proxy http://app:8000
+	}
+	handle /health/* {
+		reverse_proxy http://app:8000
+	}
+	handle /healthcheck {
+		reverse_proxy http://app:8000
+	}
+	handle /estimate {
+		reverse_proxy http://app:8000
+	}
+	handle /run {
+		reverse_proxy http://app:8000
+	}
+	handle /approve/* {
+		reverse_proxy http://app:8000
+	}
+	handle /status/* {
+		reverse_proxy http://app:8000
+	}
+	handle /api/status {
+		reverse_proxy http://app:8000
+	}
+	handle /docs {
+		reverse_proxy http://app:8000
+	}
+	handle /openapi.json {
+		reverse_proxy http://app:8000
+	}
+	handle /redoc {
+		reverse_proxy http://app:8000
+	}
+
+	# Landing page (99_home) - catch-all for / and assets
+	handle {
+		reverse_proxy http://99_home:3003
 	}
 }
