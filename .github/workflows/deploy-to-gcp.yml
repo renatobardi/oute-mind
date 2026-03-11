@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - feat/mvp1-architecture-6-agents
   workflow_dispatch:
 
 jobs:
@@ -31,17 +32,19 @@ jobs:
             # Discard any local modifications to tracked files
             git checkout -- .
 
-            # Pull latest changes
+            # Pull latest changes from the deployed branch
+            git pull origin feat/mvp1-architecture-6-agents
+
+            # Pull latest oute-main (source for SvelteKit services)
+            cd ~/oute-main
             git pull origin main
+            cd ~/oute-mind
 
             # Ensure .env points to .env.production for docker compose
             ln -sf .env.production .env
 
-            # Rebuild and restart the app container (service name is "app")
-            docker compose build app
-            docker compose up -d app
-
-            # Also ensure infra containers are running
+            # Rebuild and restart all services
+            docker compose build
             docker compose up -d
           EOFVM
 
