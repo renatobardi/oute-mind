@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - feat/mvp1-architecture-6-agents
   workflow_dispatch:
 
 jobs:
@@ -33,7 +32,7 @@ jobs:
             git checkout -- .
 
             # Pull latest changes from the deployed branch
-            git pull origin feat/mvp1-architecture-6-agents
+            git pull origin main
 
             # Pull latest oute-main (source for SvelteKit services)
             cd ~/oute-main
