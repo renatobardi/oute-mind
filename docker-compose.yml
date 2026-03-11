@@ -262,6 +262,48 @@ services:
       retries: 5
       start_period: 60s
 
+  99_home:
+    build:
+      context: ../oute-main
+      dockerfile: packages/99_home/Dockerfile
+    container_name: oute-home
+    expose:
+      - "3003"
+    environment:
+      - NODE_ENV=production
+      - VITE_AUTH_SERVICE_URL=http://34.132.93.171
+      - VITE_API_TIMEOUT=30000
+    networks:
+      - oute-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3003/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  03_interview:
+    build:
+      context: ../oute-main
+      dockerfile: packages/03_interview/Dockerfile
+    container_name: oute-interview
+    expose:
+      - "3002"
+    environment:
+      - NODE_ENV=production
+      - VITE_AUTH_SERVICE_URL=http://34.132.93.171
+      - VITE_API_TIMEOUT=30000
+    networks:
+      - oute-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3002/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
 networks:
   oute-network:
     driver: bridge

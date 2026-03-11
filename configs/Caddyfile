@@ -32,6 +32,16 @@
 		reverse_proxy http://02_projects:3002
 	}
 
+	# Landing page (99_home) - root path
+	handle / {
+		reverse_proxy http://99_home:3003
+	}
+
+	# Chat interface (03_interview)
+	handle /chat* {
+		reverse_proxy http://03_interview:3002
+	}
+
 	# Health check (responds directly, no proxy)
 	handle /caddy-health {
 		respond "OK" 200
