@@ -15,7 +15,7 @@ newgrp docker
 
 # Create directory structure
 echo "📂 Criando diretórios..."
-mkdir -p ~/oute-mind/{configs,volumes/{postgres,qdrant,redis,mindsdb,prometheus,grafana,caddy,jina-cache},logs}
+mkdir -p ~/oute-mind/{configs,volumes/{postgres,qdrant,redis,mindsdb,prometheus,grafana,caddy},logs}
 
 # Clone repository
 echo "📥 Clonando repositório..."

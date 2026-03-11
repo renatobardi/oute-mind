@@ -82,3 +82,19 @@ CREATE TRIGGER update_patterns_timestamp BEFORE UPDATE ON estimator.patterns
 GRANT USAGE ON SCHEMA estimator TO PUBLIC;
 GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA estimator TO PUBLIC;
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA estimator TO PUBLIC;
+
+-- =====================================================
+-- oute-main Database and Schema Setup
+-- =====================================================
+
+-- Create oute_main database for oute-main services (Dashboard, Auth, Projects)
+CREATE DATABASE oute_main;
+
+-- Connect to oute_main database and grant permissions
+-- Note: These commands should be run separately after database creation
+-- Or use: psql -U app-user oute_main < subsequent_grants.sql
+
+-- Grant privileges on oute_main database to app-user
+ALTER DATABASE oute_main OWNER TO "app-user";
+GRANT CONNECT ON DATABASE oute_main TO "app-user";
+GRANT CREATE ON DATABASE oute_main TO "app-user";

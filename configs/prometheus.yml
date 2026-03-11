@@ -26,3 +26,16 @@ scrape_configs:
   - job_name: 'qdrant'
     static_configs:
       - targets: ['qdrant:6333']
+
+  # oute-main services monitoring
+  - job_name: 'oute-dashboard'
+    static_configs:
+      - targets: ['00_dashboard:3000']
+
+  - job_name: 'oute-auth-profile'
+    static_configs:
+      - targets: ['01_auth-profile:3001']
+
+  - job_name: 'oute-projects'
+    static_configs:
+      - targets: ['02_projects:3002']

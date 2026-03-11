@@ -24,15 +24,32 @@ from crewai import Agent, Crew, Process, Task
 from crewai.project import CrewBase, agent, crew, task
 
 # Get model from environment or default
-DEFAULT_MODEL = os.getenv("MODEL", "google/gemini-1.5-flash")
+DEFAULT_MODEL = os.getenv("MODEL", "google/gemini-2.5-flash-lite")
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.7"))
 from crewai_tools import (
 	FileReadTool,
 	OCRTool,
-	AIMindTool,
 	ScrapeWebsiteTool,
 	QdrantVectorSearchTool,
 	SerperDevTool
+)
+from crewai_tools.tools.qdrant_vector_search_tool.qdrant_search_tool import QdrantConfig
+
+# Qdrant configuration from environment
+QDRANT_CONFIG = QdrantConfig(
+    qdrant_url=os.getenv("QDRANT_URL", "http://qdrant:6333"),
+    qdrant_api_key=os.getenv("QDRANT_API_KEY"),
+    collection_name=os.getenv("QDRANT_COLLECTION", "knowledge_base"),
+)
+from estimator.tools import (
+	GetChecklistTool,
+	SearchEstimationHistoryTool,
+	SearchPatternsTool,
+	SaveEstimationTool,
+	SaveFinancialScenarioTool,
+	JinaReaderTool,
+	StoreContextTool,
+	RetrieveContextTool,
 )
 
 @CrewBase
@@ -49,8 +66,10 @@ class SoftwareProjectEstimatorWithRagCrew:
             tools=[
                 FileReadTool(),
                 OCRTool(),
-                AIMindTool(),
-                ScrapeWebsiteTool()
+                ScrapeWebsiteTool(),
+                GetChecklistTool(),
+                SaveEstimationTool(),
+                StoreContextTool(),
             ],
             verbose=True,
             llm=LLM(model=DEFAULT_MODEL, temperature=LLM_TEMPERATURE),
@@ -61,11 +80,12 @@ class SoftwareProjectEstimatorWithRagCrew:
         return Agent(
             config=self.agents_config["technical_research_analyst_with_rag"], # type: ignore[index]
             tools=[
-                QdrantVectorSearchTool(),
-                SerperDevTool(), # Can be used with Jina r.jina.ai
-                AIMindTool(),
-                ScrapeWebsiteTool(), # Complementary to Jina
-                # PostgresqlTool(), # Using JSONB for NoSQL patterns
+                QdrantVectorSearchTool(qdrant_config=QDRANT_CONFIG),
+                SerperDevTool(),
+                JinaReaderTool(),
+                SearchEstimationHistoryTool(),
+                SearchPatternsTool(),
+                RetrieveContextTool(),
             ],
             verbose=True,
             llm=LLM(model=DEFAULT_MODEL, temperature=LLM_TEMPERATURE),
@@ -76,9 +96,11 @@ class SoftwareProjectEstimatorWithRagCrew:
         return Agent(
             config=self.agents_config["software_architect"], # type: ignore[index]
             tools=[
-                QdrantVectorSearchTool(),
-                AIMindTool(),
-                # PostgresqlTool(), # To be implemented
+                QdrantVectorSearchTool(qdrant_config=QDRANT_CONFIG),
+                SearchPatternsTool(),
+                SaveEstimationTool(),
+                StoreContextTool(),
+                RetrieveContextTool(),
             ],
             verbose=True,
             llm=LLM(model=DEFAULT_MODEL, temperature=LLM_TEMPERATURE),
@@ -88,7 +110,11 @@ class SoftwareProjectEstimatorWithRagCrew:
     def cost_optimization_specialist(self) -> Agent:
         return Agent(
             config=self.agents_config["cost_optimization_specialist"], # type: ignore[index]
-            tools=[ScrapeWebsiteTool()], # For GCP/AWS/Azure pricing
+            tools=[
+                ScrapeWebsiteTool(),
+                SaveFinancialScenarioTool(),
+                RetrieveContextTool(),
+            ],
             verbose=True,
             llm=LLM(model=DEFAULT_MODEL, temperature=LLM_TEMPERATURE),
         )
@@ -98,9 +124,10 @@ class SoftwareProjectEstimatorWithRagCrew:
         return Agent(
             config=self.agents_config["reviewer_and_presenter"], # type: ignore[index]
             tools=[
-                QdrantVectorSearchTool(),
+                QdrantVectorSearchTool(qdrant_config=QDRANT_CONFIG),
                 SerperDevTool(),
-                # PostgresqlTool(), # To be implemented
+                SearchEstimationHistoryTool(),
+                RetrieveContextTool(),
             ],
             verbose=True,
             llm=LLM(model=DEFAULT_MODEL, temperature=LLM_TEMPERATURE),
@@ -110,7 +137,11 @@ class SoftwareProjectEstimatorWithRagCrew:
     def knowledge_management_specialist(self) -> Agent:
         return Agent(
             config=self.agents_config["knowledge_management_specialist"], # type: ignore[index]
-            tools=[QdrantVectorSearchTool(), AIMindTool()],
+            tools=[
+                QdrantVectorSearchTool(qdrant_config=QDRANT_CONFIG),
+                SaveEstimationTool(),
+                StoreContextTool(),
+            ],
             verbose=True,
             llm=LLM(model=DEFAULT_MODEL, temperature=LLM_TEMPERATURE),
         )
@@ -163,5 +194,5 @@ class SoftwareProjectEstimatorWithRagCrew:
             tasks=self.tasks,
             process=Process.sequential, # Sequential execution for logic, enrichment as final step
             verbose=True,
-            chat_llm=LLM(model="google/gemini-2.0-flash"),
+            chat_llm=LLM(model=DEFAULT_MODEL),
         )
