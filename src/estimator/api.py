@@ -447,7 +447,7 @@ async def health_services():
 
     # Dashboard
     def check_dashboard():
-        resp = http_requests.get("http://00_dashboard:3000/health", timeout=5)
+        resp = http_requests.get("http://00_dashboard:3000/dashboard/health", timeout=5)
         resp.raise_for_status()
         return resp.json()
     checks.append(_check_service("dashboard", check_dashboard))
