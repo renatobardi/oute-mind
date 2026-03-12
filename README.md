@@ -28,7 +28,7 @@ POST /run → Agent Pipeline (90-130s) → Estimation Report (3 scenarios)
     Client ──── HTTP ────▶│                                             │
                           │  ┌───────┐    ┌──────────────────────────┐  │
                           │  │ Caddy │───▶│  FastAPI (estimator)     │  │
-                          │  │  :80  │    │  :8000                   │  │
+                          │  │  :80  │    │  :8000 (internal only)   │  │
                           │  └───────┘    │                          │  │
                           │               │  ┌─ Agent 1: Discovery   │  │
                           │               │  ├─ Agent 2: Research    │  │
@@ -86,16 +86,16 @@ Agents 1→6 run **sequentially**. Between Agent 1 and Agent 2, the system pause
 ### Quick test
 
 ```bash
-# Health check
-curl http://localhost:8000/health
+# Health check (via Caddy reverse proxy)
+curl http://localhost/health
 
-# Start estimation
-curl -X POST http://localhost:8000/run \
+# Start estimation (via Caddy reverse proxy)
+curl -X POST http://localhost/run \
   -H "Content-Type: application/json" \
   -d '{"project_details": "E-commerce platform with React and FastAPI"}'
 
-# Check status
-curl http://localhost:8000/status/{estimation_id}
+# Check status (via Caddy reverse proxy)
+curl http://localhost/status/{estimation_id}
 ```
 
 ---
@@ -141,7 +141,7 @@ cp .env.production.example .env.production
 docker compose up -d
 
 # Verify
-curl http://localhost:8000/health
+curl http://localhost/health
 ```
 
 ### Deploy to GCP
@@ -207,12 +207,23 @@ FASTAPI_WORKERS=4                  # Uvicorn workers
 
 ## Monitoring
 
-| Service    | URL                        |
-|------------|----------------------------|
-| API Docs   | `http://<IP>:8000/docs`    |
-| Health     | `http://<IP>/healthcheck`  |
-| Grafana    | `http://<IP>:3080`         |
-| Prometheus | `http://<IP>:9090`         |
+| Service    | URL / Access                                              |
+|------------|-----------------------------------------------------------|
+| API Docs   | `http://<IP>/docs` (via Caddy)                            |
+| Health     | `http://<IP>/healthcheck` (via Caddy)                     |
+| Grafana    | Internal only — access via `docker exec` or SSH tunnel    |
+| Prometheus | Internal only — access via `docker exec` or SSH tunnel    |
+
+> **Note**: Grafana and Prometheus are not exposed on host ports. To access them, use an SSH tunnel:
+> ```bash
+> # Grafana (internal port 3000)
+> gcloud compute ssh oute-mind --zone=us-central1-a -- -L 3080:grafana:3000
+> # Then open http://localhost:3080 in your browser
+>
+> # Prometheus (internal port 9090)
+> gcloud compute ssh oute-mind --zone=us-central1-a -- -L 9090:prometheus:9090
+> # Then open http://localhost:9090 in your browser
+> ```
 
 ---
 
