@@ -11,10 +11,9 @@ permissions:
   id-token: write
 
 env:
-  GCP_PROJECT_ID: oute-mind
   GCP_ZONE: us-central1-a
   VM_NAME: oute-mind
-  DEPLOY_HOME: /home/renatobardicabral_gmail_com
+  DEPLOY_USER: renatobardicabral_gmail_com
 
 jobs:
   deploy:
@@ -42,47 +41,41 @@ jobs:
         run: |
           gcloud compute ssh ${{ env.VM_NAME }} \
             --zone=${{ env.GCP_ZONE }} \
-            --command="
-              cd ${{ env.DEPLOY_HOME }}/oute-mind
+            --command="sudo -u ${{ env.DEPLOY_USER }} bash -c '
+              cd /home/${{ env.DEPLOY_USER }}/oute-mind
 
-              # Discard any local modifications to tracked files
               git checkout -- .
-
-              # Pull latest changes from the deployed branch
               git pull origin main
 
-              # Pull latest oute-main (source for SvelteKit services)
-              cd ${{ env.DEPLOY_HOME }}/oute-main
+              cd /home/${{ env.DEPLOY_USER }}/oute-main
               git pull origin main
-              cd ${{ env.DEPLOY_HOME }}/oute-mind
+              cd /home/${{ env.DEPLOY_USER }}/oute-mind
 
-              # Ensure .env points to .env.production for docker compose
               ln -sf .env.production .env
 
-              # Rebuild and restart all services
               docker compose build
               docker compose up -d
-            "
+            '"
 
       - name: Health check (via SSH)
         run: |
           gcloud compute ssh ${{ env.VM_NAME }} \
             --zone=${{ env.GCP_ZONE }} \
-            --command="
+            --command="sudo -u ${{ env.DEPLOY_USER }} bash -c '
               for i in \$(seq 1 20); do
                 if docker exec oute-app curl -sf http://localhost:8000/health > /dev/null 2>&1; then
-                  echo 'oute-mind health check PASSED'
+                  echo oute-mind health check PASSED
                   docker exec oute-app curl -s http://localhost:8000/health | python3 -m json.tool 2>/dev/null || true
                   break
                 fi
                 if [ \"\$i\" -eq 20 ]; then
-                  echo 'oute-mind health check FAILED after 20 attempts'
+                  echo oute-mind health check FAILED after 20 attempts
                   exit 1
                 fi
                 echo \"  attempt \${i}/20, retrying in 3s...\"
                 sleep 3
               done
-            "
+            '"
 
       - name: Deployment success
         if: success()
@@ -90,19 +83,18 @@ jobs:
           VM_IP=$(gcloud compute addresses describe oute-mind-ip \
             --region=us-central1 --format="get(address)")
           echo "Deployment to VM successful!"
-          echo "Services:"
-          echo "  App:         http://${VM_IP} (via Caddy)"
-          echo "  Healthcheck: http://${VM_IP}/caddy-health"
+          echo "  App: http://${VM_IP}"
+          echo "  Health: http://${VM_IP}/caddy-health"
 
       - name: Capture logs on failure
         if: failure()
         run: |
           gcloud compute ssh ${{ env.VM_NAME }} \
             --zone=${{ env.GCP_ZONE }} \
-            --command="
-              cd ${{ env.DEPLOY_HOME }}/oute-mind
-              echo '=== Container Status ==='
+            --command="sudo -u ${{ env.DEPLOY_USER }} bash -c '
+              cd /home/${{ env.DEPLOY_USER }}/oute-mind
+              echo === Container Status ===
               docker compose ps
-              echo '=== oute-app Logs ==='
+              echo === oute-app Logs ===
               docker compose logs --tail=50 app 2>&1 || true
-            " || echo "Could not connect to VM for log capture"
+            '" || echo "Could not connect to VM for log capture"
