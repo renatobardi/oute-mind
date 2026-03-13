@@ -6,81 +6,102 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: oute-mind
+  GCP_ZONE: us-central1-a
+  VM_NAME: oute-mind
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
-      - name: Configure SSH
-        run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" | base64 -d > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          echo "${{ secrets.VM_SSH_KNOWN_HOSTS }}" >> ~/.ssh/known_hosts
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/897931738821/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-actions-deploy@oute-mind.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
 
       - name: Test SSH connection
         run: |
-          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOSTNAME }} "echo 'SSH OK'"
+          gcloud compute ssh ${{ env.VM_NAME }} \
+            --zone=${{ env.GCP_ZONE }} \
+            --ssh-flag="-o ConnectTimeout=30" \
+            --command="echo 'SSH OK'"
 
       - name: Deploy to VM
         run: |
-          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOSTNAME }} << 'EOFVM'
-            cd ~/oute-mind
+          gcloud compute ssh ${{ env.VM_NAME }} \
+            --zone=${{ env.GCP_ZONE }} \
+            --command="
+              cd ~/oute-mind
 
-            # Discard any local modifications to tracked files
-            git checkout -- .
+              # Discard any local modifications to tracked files
+              git checkout -- .
 
-            # Pull latest changes from the deployed branch
-            git pull origin main
+              # Pull latest changes from the deployed branch
+              git pull origin main
 
-            # Pull latest oute-main (source for SvelteKit services)
-            cd ~/oute-main
-            git pull origin main
-            cd ~/oute-mind
+              # Pull latest oute-main (source for SvelteKit services)
+              cd ~/oute-main
+              git pull origin main
+              cd ~/oute-mind
 
-            # Ensure .env points to .env.production for docker compose
-            ln -sf .env.production .env
+              # Ensure .env points to .env.production for docker compose
+              ln -sf .env.production .env
 
-            # Rebuild and restart all services
-            docker compose build
-            docker compose up -d
-          EOFVM
+              # Rebuild and restart all services
+              docker compose build
+              docker compose up -d
+            "
 
       - name: Health check (via SSH)
         run: |
-          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOSTNAME }} << 'EOFVM'
-            for i in $(seq 1 20); do
-              if docker exec oute-app curl -sf http://localhost:8000/health > /dev/null 2>&1; then
-                echo "✅ oute-mind health check PASSED"
-                docker exec oute-app curl -s http://localhost:8000/health | python3 -m json.tool 2>/dev/null || true
-                break
-              fi
-              if [ "$i" -eq 20 ]; then
-                echo "❌ oute-mind health check FAILED after 20 attempts"
-                exit 1
-              fi
-              echo "  attempt ${i}/20, retrying in 3s..."
-              sleep 3
-            done
-          EOFVM
+          gcloud compute ssh ${{ env.VM_NAME }} \
+            --zone=${{ env.GCP_ZONE }} \
+            --command="
+              for i in \$(seq 1 20); do
+                if docker exec oute-app curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+                  echo 'oute-mind health check PASSED'
+                  docker exec oute-app curl -s http://localhost:8000/health | python3 -m json.tool 2>/dev/null || true
+                  break
+                fi
+                if [ \"\$i\" -eq 20 ]; then
+                  echo 'oute-mind health check FAILED after 20 attempts'
+                  exit 1
+                fi
+                echo \"  attempt \${i}/20, retrying in 3s...\"
+                sleep 3
+              done
+            "
 
       - name: Deployment success
         if: success()
         run: |
-          echo "✅ Deployment to VM successful!"
+          VM_IP=$(gcloud compute addresses describe oute-mind-ip \
+            --region=us-central1 --format="get(address)")
+          echo "Deployment to VM successful!"
           echo "Services:"
-          echo "  App:         http://${{ secrets.VM_HOSTNAME }} (via Caddy)"
-          echo "  Healthcheck: http://${{ secrets.VM_HOSTNAME }}/caddy-health"
+          echo "  App:         http://${VM_IP} (via Caddy)"
+          echo "  Healthcheck: http://${VM_IP}/caddy-health"
 
       - name: Capture logs on failure
         if: failure()
         run: |
-          echo "❌ Deployment FAILED — capturing container logs..."
-          ssh ${{ secrets.VM_USER }}@${{ secrets.VM_HOSTNAME }} << 'EOFVM'
-            cd ~/oute-mind
-            echo "=== Container Status ==="
-            docker compose ps
-            echo "=== oute-app Logs ==="
-            docker compose logs --tail=50 app 2>&1 || true
-          EOFVM
+          gcloud compute ssh ${{ env.VM_NAME }} \
+            --zone=${{ env.GCP_ZONE }} \
+            --command="
+              cd ~/oute-mind
+              echo '=== Container Status ==='
+              docker compose ps
+              echo '=== oute-app Logs ==='
+              docker compose logs --tail=50 app 2>&1 || true
+            " || echo "Could not connect to VM for log capture"
