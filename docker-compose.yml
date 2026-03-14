@@ -292,8 +292,12 @@ services:
       - "3002"
     environment:
       - NODE_ENV=production
+      - DATABASE_URL=postgresql://app-user:${POSTGRES_PASSWORD}@postgres:5432/oute_main
       - VITE_AUTH_SERVICE_URL=http://34.132.93.171
       - VITE_API_TIMEOUT=30000
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - oute-network
     restart: unless-stopped
