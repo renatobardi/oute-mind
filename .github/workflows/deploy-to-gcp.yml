@@ -13,6 +13,7 @@ env:
   GCP_ZONE: us-central1-a
   VM_NAME: oute-mind
   PROJECT_ID: oute-mind
+  DEPLOY_USER: renatobardicabral_gmail_com
 
 jobs:
   deploy:
@@ -41,7 +42,7 @@ jobs:
             --tunnel-through-iap \
             --command='
               set -e
-              sudo bash -c "
+              sudo -u ${{ env.DEPLOY_USER }} bash -c "
                 if ! docker compose version &>/dev/null; then
                   echo \"Installing docker compose v2 plugin...\"
                   mkdir -p /usr/local/lib/docker/cli-plugins
@@ -83,7 +84,7 @@ jobs:
             --project=${{ env.PROJECT_ID }} \
             --tunnel-through-iap \
             --command='
-              sudo bash -c "
+              sudo -u ${{ env.DEPLOY_USER }} bash -c "
                 FAILED=0
                 for svc in \"App:oute-app:8000:/health\"; do
                   name=\$(echo \"\$svc\" | cut -d: -f1)
@@ -132,7 +133,7 @@ jobs:
             --project=${{ env.PROJECT_ID }} \
             --tunnel-through-iap \
             --command='
-              sudo bash -c "
+              sudo -u ${{ env.DEPLOY_USER }} bash -c "
                 OUTE_MIND=/home/renatobardicabral_gmail_com/oute-mind
                 cd \$OUTE_MIND 2>/dev/null || true
                 echo === Container Status ===
