@@ -10,12 +10,12 @@ load_dotenv(_env_path, override=True)
 # Required for LiteLLM provider initialization (key won't be used for actual requests)
 if "OPENAI_API_KEY" not in os.environ or not os.environ.get("OPENAI_API_KEY"):
     try:
-        with open(_env_path, 'r') as f:
+        with open(_env_path, "r") as f:
             for line in f:
-                if line.startswith('OPENAI_API_KEY='):
-                    key_value = line.strip().split('=', 1)[1] if '=' in line else None
+                if line.startswith("OPENAI_API_KEY="):
+                    key_value = line.strip().split("=", 1)[1] if "=" in line else None
                     if key_value:
-                        os.environ['OPENAI_API_KEY'] = key_value
+                        os.environ["OPENAI_API_KEY"] = key_value
                         break
     except Exception as e:
         print(f"Warning: Could not read OPENAI_API_KEY from {_env_path}: {e}")
@@ -49,15 +49,15 @@ from estimator.tools import (
 
 @CrewBase
 class SoftwareProjectEstimatorWithRagCrew:
-    agents_config = 'config/agents.yaml'
-    tasks_config = 'config/tasks.yaml'
+    agents_config = "config/agents.yaml"
+    tasks_config = "config/tasks.yaml"
 
     # --- Agents ---
 
     @agent
     def software_architecture_interviewer(self) -> Agent:
         return Agent(
-            config=self.agents_config["software_architecture_interviewer"], # type: ignore[index]
+            config=self.agents_config["software_architecture_interviewer"],  # type: ignore[index]
             tools=[
                 FileReadTool(),
                 OCRTool(),
@@ -73,7 +73,7 @@ class SoftwareProjectEstimatorWithRagCrew:
     @agent
     def technical_research_analyst_with_rag(self) -> Agent:
         return Agent(
-            config=self.agents_config["technical_research_analyst_with_rag"], # type: ignore[index]
+            config=self.agents_config["technical_research_analyst_with_rag"],  # type: ignore[index]
             tools=[
                 QdrantVectorSearchTool(qdrant_config=QDRANT_CONFIG),
                 SerperDevTool(),
@@ -89,7 +89,7 @@ class SoftwareProjectEstimatorWithRagCrew:
     @agent
     def software_architect(self) -> Agent:
         return Agent(
-            config=self.agents_config["software_architect"], # type: ignore[index]
+            config=self.agents_config["software_architect"],  # type: ignore[index]
             tools=[
                 QdrantVectorSearchTool(qdrant_config=QDRANT_CONFIG),
                 SearchPatternsTool(),
@@ -104,7 +104,7 @@ class SoftwareProjectEstimatorWithRagCrew:
     @agent
     def cost_optimization_specialist(self) -> Agent:
         return Agent(
-            config=self.agents_config["cost_optimization_specialist"], # type: ignore[index]
+            config=self.agents_config["cost_optimization_specialist"],  # type: ignore[index]
             tools=[
                 ScrapeWebsiteTool(),
                 SaveFinancialScenarioTool(),
@@ -117,7 +117,7 @@ class SoftwareProjectEstimatorWithRagCrew:
     @agent
     def reviewer_and_presenter(self) -> Agent:
         return Agent(
-            config=self.agents_config["reviewer_and_presenter"], # type: ignore[index]
+            config=self.agents_config["reviewer_and_presenter"],  # type: ignore[index]
             tools=[
                 QdrantVectorSearchTool(qdrant_config=QDRANT_CONFIG),
                 SerperDevTool(),
@@ -131,7 +131,7 @@ class SoftwareProjectEstimatorWithRagCrew:
     @agent
     def knowledge_management_specialist(self) -> Agent:
         return Agent(
-            config=self.agents_config["knowledge_management_specialist"], # type: ignore[index]
+            config=self.agents_config["knowledge_management_specialist"],  # type: ignore[index]
             tools=[
                 QdrantVectorSearchTool(qdrant_config=QDRANT_CONFIG),
                 SaveEstimationTool(),
@@ -146,39 +146,39 @@ class SoftwareProjectEstimatorWithRagCrew:
     @task
     def conduct_architecture_discovery_session(self) -> Task:
         return Task(
-            config=self.tasks_config["conduct_architecture_discovery_session"], # type: ignore[index]
-            human_input=True
+            config=self.tasks_config["conduct_architecture_discovery_session"],  # type: ignore[index]
+            human_input=True,
         )
 
     @task
     def rag_enhanced_technical_analysis(self) -> Task:
         return Task(
-            config=self.tasks_config["rag_enhanced_technical_analysis"], # type: ignore[index]
+            config=self.tasks_config["rag_enhanced_technical_analysis"],  # type: ignore[index]
         )
 
     @task
     def consolidate_design_and_persist(self) -> Task:
         return Task(
-            config=self.tasks_config["consolidate_design_and_persist"], # type: ignore[index]
+            config=self.tasks_config["consolidate_design_and_persist"],  # type: ignore[index]
         )
 
     @task
     def financial_scenario_modeling(self) -> Task:
         return Task(
-            config=self.tasks_config["financial_scenario_modeling"], # type: ignore[index]
+            config=self.tasks_config["financial_scenario_modeling"],  # type: ignore[index]
         )
 
     @task
     def final_review_and_presentation(self) -> Task:
         return Task(
-            config=self.tasks_config["final_review_and_presentation"], # type: ignore[index]
-            human_input=True 
+            config=self.tasks_config["final_review_and_presentation"],  # type: ignore[index]
+            human_input=True,
         )
 
     @task
     def long_term_knowledge_enrichment(self) -> Task:
         return Task(
-            config=self.tasks_config["long_term_knowledge_enrichment"], # type: ignore[index]
+            config=self.tasks_config["long_term_knowledge_enrichment"],  # type: ignore[index]
         )
 
     @crew
@@ -187,7 +187,7 @@ class SoftwareProjectEstimatorWithRagCrew:
         return Crew(
             agents=self.agents,
             tasks=self.tasks,
-            process=Process.sequential, # Sequential execution for logic, enrichment as final step
+            process=Process.sequential,  # Sequential execution for logic, enrichment as final step
             verbose=True,
             chat_llm=LLM(model=DEFAULT_MODEL),
         )

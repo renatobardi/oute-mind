@@ -75,9 +75,7 @@ class GetChecklistTool(BaseTool):
             if not rows:
                 return f"No checklists found for phase '{phase}'."
 
-            results = [
-                {"id": str(row[0]), "phase": row[1], "content": row[2]} for row in rows
-            ]
+            results = [{"id": str(row[0]), "phase": row[1], "content": row[2]} for row in rows]
             return json.dumps(results, ensure_ascii=False, indent=2)
         except Exception as e:
             return f"Error fetching checklist: {e}"
@@ -218,9 +216,7 @@ class SearchPatternsTool(BaseTool):
                     (f"%{search_text}%", f"%{search_text}%"),
                 )
             else:
-                cur.execute(
-                    "SELECT id, pattern_name, description, pattern_data FROM estimator.patterns ORDER BY pattern_name LIMIT 20"
-                )
+                cur.execute("SELECT id, pattern_name, description, pattern_data FROM estimator.patterns ORDER BY pattern_name LIMIT 20")
 
             rows = cur.fetchall()
             cur.close()
@@ -249,24 +245,12 @@ class SearchPatternsTool(BaseTool):
 class SaveEstimationInput(BaseModel):
     """Input for saving estimation data."""
 
-    estimation_id: str = Field(
-        ..., description="The estimation UUID to associate this data with."
-    )
-    project_id: str = Field(
-        ..., description="The project UUID."
-    )
-    team_id: str = Field(
-        ..., description="The team UUID."
-    )
-    user_id: str = Field(
-        ..., description="The user UUID."
-    )
-    phase: int = Field(
-        ..., description="The pipeline phase number (1-6)."
-    )
-    status: str = Field(
-        ..., description="Status of this phase, e.g. 'completed', 'pending_approval'."
-    )
+    estimation_id: str = Field(..., description="The estimation UUID to associate this data with.")
+    project_id: str = Field(..., description="The project UUID.")
+    team_id: str = Field(..., description="The team UUID.")
+    user_id: str = Field(..., description="The user UUID.")
+    phase: int = Field(..., description="The pipeline phase number (1-6).")
+    status: str = Field(..., description="Status of this phase, e.g. 'completed', 'pending_approval'.")
     data: str = Field(
         ...,
         description="JSON string with the estimation results for this phase.",
@@ -325,29 +309,20 @@ class SaveEstimationTool(BaseTool):
 class SaveFinancialScenarioInput(BaseModel):
     """Input for saving a financial scenario."""
 
-    estimation_id: str = Field(
-        ..., description="The estimation UUID this scenario belongs to."
-    )
+    estimation_id: str = Field(..., description="The estimation UUID this scenario belongs to.")
     scenario_type: str = Field(
         ...,
         description="Type of scenario: 'human-only', 'ai-only', or 'hybrid'.",
     )
-    costs: str = Field(
-        ..., description="JSON string with cost breakdown (labor, infrastructure, licensing, etc.)."
-    )
-    timeline: str = Field(
-        ..., description="JSON string with timeline breakdown (phases, milestones, durations)."
-    )
-    risks: str = Field(
-        ..., description="JSON string with risk assessment (probability, impact, mitigation)."
-    )
+    costs: str = Field(..., description="JSON string with cost breakdown (labor, infrastructure, licensing, etc.).")
+    timeline: str = Field(..., description="JSON string with timeline breakdown (phases, milestones, durations).")
+    risks: str = Field(..., description="JSON string with risk assessment (probability, impact, mitigation).")
 
 
 class SaveFinancialScenarioTool(BaseTool):
     name: str = "Save Financial Scenario"
     description: str = (
-        "Save a cost scenario (human-only, ai-only, or hybrid) to PostgreSQL. "
-        "Each scenario includes detailed cost breakdown, timeline, and risk analysis."
+        "Save a cost scenario (human-only, ai-only, or hybrid) to PostgreSQL. Each scenario includes detailed cost breakdown, timeline, and risk analysis."
     )
     args_schema: Type[BaseModel] = SaveFinancialScenarioInput
 

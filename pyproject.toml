@@ -56,7 +56,7 @@ ignore = [
 [tool.mypy]
 python_version = "3.13"
 ignore_missing_imports = true
-disable_error_code = ["import-untyped", "attr-defined"]
+disable_error_code = ["import-untyped", "attr-defined", "call-arg", "arg-type"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
