@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 """FastAPI wrapper for CrewAI software estimator with async execution."""
 
-import os
 import json
-import uuid
+import os
 import threading
+import uuid
 from datetime import datetime, timezone
 
 from dotenv import load_dotenv
@@ -29,13 +29,14 @@ if "OPENAI_API_KEY" not in os.environ or not os.environ.get("OPENAI_API_KEY"):
         print(f"Warning: Could not read OPENAI_API_KEY from {_env_path}: {e}")
 
 # Now import the crew after env vars are loaded
-import uvicorn
+import psycopg2
 import redis
 import requests as http_requests
-import psycopg2
+import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
+
 from estimator.crew import SoftwareProjectEstimatorWithRagCrew
 
 # Create FastAPI app

@@ -9,7 +9,6 @@ Provides read/write access to the estimator schema:
 
 import json
 import os
-from enum import Enum
 from typing import Type
 
 import psycopg2
@@ -214,7 +213,8 @@ class SearchPatternsTool(BaseTool):
                 )
             elif search_text:
                 cur.execute(
-                    "SELECT id, pattern_name, description, pattern_data FROM estimator.patterns WHERE pattern_name ILIKE %s OR description ILIKE %s ORDER BY pattern_name LIMIT 20",
+                    "SELECT id, pattern_name, description, pattern_data FROM estimator.patterns"  # noqa: E501
+                    " WHERE pattern_name ILIKE %s OR description ILIKE %s ORDER BY pattern_name LIMIT 20",
                     (f"%{search_text}%", f"%{search_text}%"),
                 )
             else:

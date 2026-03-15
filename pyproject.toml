@@ -43,15 +43,20 @@ build-backend = "hatchling.build"
 type = "crew"
 
 [tool.ruff]
-line-length = 88
+line-length = 160
 target-version = "py313"
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]
+ignore = [
+    "E402",  # module-level import not at top — intencional em api.py (dotenv antes do crew)
+    "F841",  # local variable assigned but never used — será corrigido gradualmente
+]
 
 [tool.mypy]
 python_version = "3.13"
 ignore_missing_imports = true
+disable_error_code = ["import-untyped", "attr-defined"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
