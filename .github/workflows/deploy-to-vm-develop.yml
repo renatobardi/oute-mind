@@ -65,8 +65,11 @@ jobs:
                 docker network inspect oute-mind-dev-network &>/dev/null || docker network create oute-mind-dev-network
                 echo \"oute-mind-dev-network OK\"
 
-                echo \"=== Removendo imagens dev antigas ===\"
-                docker compose -f docker-compose.develop.yml down 2>/dev/null || true
+                echo \"=== Removendo containers dev antigos ===\"
+                docker compose -f docker-compose.develop.yml down --remove-orphans 2>/dev/null || true
+                for c in oute-dev-app oute-dev-postgres oute-dev-redis oute-dev-qdrant oute-dev-mindsdb oute-dev-caddy; do
+                  docker rm -f \"\$c\" 2>/dev/null || true
+                done
                 docker rmi oute-dev-app 2>/dev/null || true
 
                 echo \"=== Build das imagens de develop ===\"
