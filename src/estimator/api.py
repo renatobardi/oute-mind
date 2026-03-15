@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 """FastAPI wrapper for CrewAI software estimator with async execution."""
 
-import os
 import json
-import uuid
+import os
 import threading
+import uuid
 from datetime import datetime, timezone
 
 from dotenv import load_dotenv
@@ -18,35 +18,33 @@ load_dotenv(_env_path, override=True)
 # This is required for CrewAI/LiteLLM to initialize (even though we use Google Gemini)
 if "OPENAI_API_KEY" not in os.environ or not os.environ.get("OPENAI_API_KEY"):
     try:
-        with open(_env_path, 'r') as f:
+        with open(_env_path, "r") as f:
             for line in f:
-                if line.startswith('OPENAI_API_KEY='):
-                    key_value = line.strip().split('=', 1)[1] if '=' in line else None
+                if line.startswith("OPENAI_API_KEY="):
+                    key_value = line.strip().split("=", 1)[1] if "=" in line else None
                     if key_value:
-                        os.environ['OPENAI_API_KEY'] = key_value
+                        os.environ["OPENAI_API_KEY"] = key_value
                         break
     except Exception as e:
         print(f"Warning: Could not read OPENAI_API_KEY from {_env_path}: {e}")
 
 # Now import the crew after env vars are loaded
-import uvicorn
+import psycopg2
 import redis
 import requests as http_requests
-import psycopg2
+import uvicorn
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
+
 from estimator.crew import SoftwareProjectEstimatorWithRagCrew
 
 # Create FastAPI app
-app = FastAPI(
-    title="Software Estimator API",
-    description="CrewAI-powered software project estimation API with async execution",
-    version="1.1.0"
-)
+app = FastAPI(title="Software Estimator API", description="CrewAI-powered software project estimation API with async execution", version="1.1.0")
 
 
 # --- Redis connection ---
+
 
 def _get_redis() -> redis.Redis:
     """Get Redis connection for job state management."""
@@ -73,18 +71,22 @@ def _get_job_state(estimation_id: str) -> dict | None:
 
 # --- Pydantic Models ---
 
+
 class RunRequest(BaseModel):
     project_details: str
     estimation_id: str | None = None
+
 
 class RunResponse(BaseModel):
     estimation_id: str
     status: str
     message: str
 
+
 class ApproveRequest(BaseModel):
     approved: bool = True
     feedback: str | None = None
+
 
 class StatusResponse(BaseModel):
     estimation_id: str
@@ -96,9 +98,11 @@ class StatusResponse(BaseModel):
     result: str | None = None
     error: str | None = None
 
+
 class EstimationRequest(BaseModel):
     estimation_id: str
     project_details: str | None = None
+
 
 class EstimationResponse(BaseModel):
     estimation_id: str
@@ -109,6 +113,7 @@ class EstimationResponse(BaseModel):
 # --- Lazy crew initialization ---
 
 _crew_instance = None
+
 
 def get_crew():
     """Lazy load the crew instance."""
@@ -136,15 +141,19 @@ PHASES = {
 
 # --- Background worker ---
 
+
 def _run_estimation_worker(estimation_id: str, project_details: str):
     """Run the CrewAI estimation pipeline in a background thread."""
     try:
-        _set_job_state(estimation_id, {
-            "status": "running",
-            "current_phase": 1,
-            "phase_name": PHASES[1],
-            "started_at": datetime.now(timezone.utc).isoformat(),
-        })
+        _set_job_state(
+            estimation_id,
+            {
+                "status": "running",
+                "current_phase": 1,
+                "phase_name": PHASES[1],
+                "started_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
 
         crew = get_crew()
         inputs = {
@@ -160,32 +169,36 @@ def _run_estimation_worker(estimation_id: str, project_details: str):
 
         result = crew.crew().kickoff(inputs=inputs)
 
-        _set_job_state(estimation_id, {
-            "status": "completed",
-            "current_phase": 6,
-            "phase_name": PHASES[6],
-            "started_at": state.get("started_at") if state else None,
-            "completed_at": datetime.now(timezone.utc).isoformat(),
-            "result": str(result),
-        })
+        _set_job_state(
+            estimation_id,
+            {
+                "status": "completed",
+                "current_phase": 6,
+                "phase_name": PHASES[6],
+                "started_at": state.get("started_at") if state else None,
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+                "result": str(result),
+            },
+        )
 
     except Exception as e:
-        _set_job_state(estimation_id, {
-            "status": "failed",
-            "error": str(e),
-            "completed_at": datetime.now(timezone.utc).isoformat(),
-        })
+        _set_job_state(
+            estimation_id,
+            {
+                "status": "failed",
+                "error": str(e),
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
 
 
 # --- Endpoints ---
 
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint — lightweight, no crew init."""
-    return {
-        "status": "healthy",
-        "service": "software-estimator"
-    }
+    return {"status": "healthy", "service": "software-estimator"}
 
 
 @app.get("/api/status")
@@ -197,12 +210,7 @@ async def api_status():
     except Exception:
         crew_status = "initializing"
 
-    return {
-        "status": "running",
-        "service": "software-estimator",
-        "version": "1.1.0",
-        "crew_status": crew_status
-    }
+    return {"status": "running", "service": "software-estimator", "version": "1.1.0", "crew_status": crew_status}
 
 
 @app.get("/")
@@ -218,7 +226,7 @@ async def root():
             "approve": "POST /approve/{estimation_id}",
             "job_status": "GET /status/{estimation_id}",
             "estimate_sync": "POST /estimate",
-        }
+        },
     }
 
 
@@ -230,17 +238,17 @@ async def run_estimation(request: RunRequest):
     # Check if already running
     existing = _get_job_state(estimation_id)
     if existing and existing.get("status") in ("running", "awaiting_approval"):
-        raise HTTPException(
-            status_code=409,
-            detail=f"Estimation '{estimation_id}' is already {existing['status']}."
-        )
+        raise HTTPException(status_code=409, detail=f"Estimation '{estimation_id}' is already {existing['status']}.")
 
     # Initialize job state
-    _set_job_state(estimation_id, {
-        "status": "queued",
-        "current_phase": 0,
-        "started_at": datetime.now(timezone.utc).isoformat(),
-    })
+    _set_job_state(
+        estimation_id,
+        {
+            "status": "queued",
+            "current_phase": 0,
+            "started_at": datetime.now(timezone.utc).isoformat(),
+        },
+    )
 
     # Launch background worker
     worker = threading.Thread(
@@ -263,10 +271,7 @@ async def get_estimation_status(estimation_id: str):
     """Check the progress of an async estimation."""
     state = _get_job_state(estimation_id)
     if not state:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Estimation '{estimation_id}' not found."
-        )
+        raise HTTPException(status_code=404, detail=f"Estimation '{estimation_id}' not found.")
 
     return StatusResponse(
         estimation_id=estimation_id,
@@ -285,34 +290,34 @@ async def approve_estimation(estimation_id: str, request: ApproveRequest):
     """Approve or reject the discovery phase to continue the pipeline."""
     state = _get_job_state(estimation_id)
     if not state:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Estimation '{estimation_id}' not found."
-        )
+        raise HTTPException(status_code=404, detail=f"Estimation '{estimation_id}' not found.")
 
     if state.get("status") != "awaiting_approval":
-        raise HTTPException(
-            status_code=400,
-            detail=f"Estimation is not awaiting approval. Current status: {state.get('status')}"
-        )
+        raise HTTPException(status_code=400, detail=f"Estimation is not awaiting approval. Current status: {state.get('status')}")
 
     if not request.approved:
-        _set_job_state(estimation_id, {
-            **state,
-            "status": "rejected",
-            "feedback": request.feedback,
-            "completed_at": datetime.now(timezone.utc).isoformat(),
-        })
+        _set_job_state(
+            estimation_id,
+            {
+                **state,
+                "status": "rejected",
+                "feedback": request.feedback,
+                "completed_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
         return {"estimation_id": estimation_id, "status": "rejected", "message": "Estimation rejected by client."}
 
     # Approved — resume pipeline from phase 2
-    _set_job_state(estimation_id, {
-        **state,
-        "status": "running",
-        "current_phase": 2,
-        "phase_name": PHASES[2],
-        "feedback": request.feedback,
-    })
+    _set_job_state(
+        estimation_id,
+        {
+            **state,
+            "status": "running",
+            "current_phase": 2,
+            "phase_name": PHASES[2],
+            "feedback": request.feedback,
+        },
+    )
 
     # Re-launch worker to continue from phase 2
     worker = threading.Thread(
@@ -331,6 +336,7 @@ async def approve_estimation(estimation_id: str, request: ApproveRequest):
 
 
 # --- Service Health Checks ---
+
 
 def _check_service(name: str, check_fn) -> dict:
     """Run a health check function and return status dict."""
@@ -364,12 +370,14 @@ async def health_services():
         cur.close()
         conn.close()
         return f"{count} tables in estimator schema"
+
     checks.append(_check_service("postgresql", check_postgres))
 
     # Redis
     def check_redis():
         r = _get_redis()
         return r.ping()
+
     checks.append(_check_service("redis", check_redis))
 
     # Qdrant
@@ -378,6 +386,7 @@ async def health_services():
         resp = http_requests.get(f"{url}/healthz", timeout=5)
         resp.raise_for_status()
         return resp.text.strip()
+
     checks.append(_check_service("qdrant", check_qdrant))
 
     # MindsDB
@@ -387,6 +396,7 @@ async def health_services():
         resp = http_requests.get(f"http://{host}:{port}/api/status", timeout=5)
         resp.raise_for_status()
         return resp.json()
+
     checks.append(_check_service("mindsdb", check_mindsdb))
 
     # Jina Reader (cloud API: r.jina.ai)
@@ -394,6 +404,7 @@ async def health_services():
         resp = http_requests.get("https://r.jina.ai/https://example.com", headers={"Accept": "text/markdown"}, timeout=10)
         resp.raise_for_status()
         return f"cloud API ({len(resp.text)} chars)"
+
     checks.append(_check_service("jina_reader", check_jina))
 
     # Google Gemini
@@ -410,6 +421,7 @@ async def health_services():
         data = resp.json()
         text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
         return text.strip()
+
     checks.append(_check_service("gemini", check_gemini))
 
     # CrewAI
@@ -418,6 +430,7 @@ async def health_services():
         agent_count = len(crew.crew().agents)
         task_count = len(crew.crew().tasks)
         return f"{agent_count} agents, {task_count} tasks"
+
     checks.append(_check_service("crewai", check_crewai))
 
     # --- Infrastructure ---
@@ -427,6 +440,7 @@ async def health_services():
         resp = http_requests.get("http://prometheus:9090/-/healthy", timeout=5)
         resp.raise_for_status()
         return resp.text.strip()
+
     checks.append(_check_service("prometheus", check_prometheus))
 
     # Grafana
@@ -434,6 +448,7 @@ async def health_services():
         resp = http_requests.get("http://grafana:3000/api/health", timeout=5)
         resp.raise_for_status()
         return resp.json()
+
     checks.append(_check_service("grafana", check_grafana))
 
     # Caddy (use dedicated health endpoint — catch-all proxies back to this app)
@@ -441,6 +456,7 @@ async def health_services():
         resp = http_requests.get("http://caddy:80/caddy-health", timeout=5)
         resp.raise_for_status()
         return resp.text.strip()
+
     checks.append(_check_service("caddy", check_caddy))
 
     # --- oute-main services ---
@@ -450,6 +466,7 @@ async def health_services():
         resp = http_requests.get("http://00_dashboard:3000/dashboard/health", timeout=5)
         resp.raise_for_status()
         return resp.json()
+
     checks.append(_check_service("dashboard", check_dashboard))
 
     # Auth Profile
@@ -457,6 +474,7 @@ async def health_services():
         resp = http_requests.get("http://01_auth-profile:3001/health", timeout=5)
         resp.raise_for_status()
         return resp.json()
+
     checks.append(_check_service("auth_profile", check_auth))
 
     # Projects
@@ -464,6 +482,7 @@ async def health_services():
         resp = http_requests.get("http://02_projects:3002/health", timeout=5)
         resp.raise_for_status()
         return resp.json()
+
     checks.append(_check_service("projects", check_projects))
 
     all_ok = all(c["status"] == "ok" for c in checks)
@@ -483,37 +502,20 @@ async def estimate(request: EstimationRequest):
     """Run software estimation synchronously (legacy endpoint)."""
     try:
         crew = get_crew()
-        inputs = {
-            'estimation_id': request.estimation_id,
-            'project_details': request.project_details or ''
-        }
+        inputs = {"estimation_id": request.estimation_id, "project_details": request.project_details or ""}
         result = crew.crew().kickoff(inputs=inputs)
 
-        return EstimationResponse(
-            estimation_id=request.estimation_id,
-            result=str(result),
-            status="success"
-        )
+        return EstimationResponse(estimation_id=request.estimation_id, result=str(result), status="success")
     except Exception as e:
         print(f"Estimation error: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Estimation failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Estimation failed: {str(e)}")
 
 
 def run_api():
     """Run the FastAPI server."""
     port = int(os.getenv("FASTAPI_PORT", "8000"))
 
-    uvicorn.run(
-        "estimator.api:app",
-        host="0.0.0.0",
-        port=port,
-        workers=1,
-        reload=False,
-        log_level="info"
-    )
+    uvicorn.run("estimator.api:app", host="0.0.0.0", port=port, workers=1, reload=False, log_level="info")
 
 
 if __name__ == "__main__":
