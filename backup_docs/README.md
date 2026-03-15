@@ -155,8 +155,8 @@ gcloud compute ssh oute-mind --zone=us-central1-a
 cd ~/oute-mind
 git pull origin main
 export $(cat .env.production | grep -v '^#' | xargs)
-docker compose build
-docker compose up -d
+docker compose build --no-cache app
+docker compose up -d app
 ```
 
 ---
@@ -207,12 +207,12 @@ FASTAPI_WORKERS=4                  # Uvicorn workers
 
 ## Monitoring
 
-| Service    | URL                          | Notes                        |
-|------------|------------------------------|------------------------------|
-| API Docs   | `http://<IP>/docs`           | Via Caddy proxy              |
-| Health     | `http://<IP>/healthcheck`    | Visual dashboard             |
-| Grafana    | internal only (`:3000`)      | No host port mapped          |
-| Prometheus | internal only (`:9090`)      | No host port mapped          |
+| Service    | URL                        |
+|------------|----------------------------|
+| API Docs   | `http://<IP>:8000/docs`    |
+| Health     | `http://<IP>/healthcheck`  |
+| Grafana    | `http://<IP>:3080`         |
+| Prometheus | `http://<IP>:9090`         |
 
 ---
 
