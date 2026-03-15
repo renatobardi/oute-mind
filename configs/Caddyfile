@@ -10,22 +10,22 @@
 
 	# oute-main Dashboard (SvelteKit base: /dashboard)
 	handle /dashboard* {
-		reverse_proxy http://00_dashboard:3000
+		reverse_proxy http://oute-dashboard:3000
 	}
 
 	# oute-main Auth API
 	handle /api/auth* {
-		reverse_proxy http://01_auth-profile:3001
+		reverse_proxy http://oute-auth-profile:3001
 	}
 
 	# oute-main Projects API
 	handle /api/projects* {
-		reverse_proxy http://02_projects:3002
+		reverse_proxy http://oute-projects:3002
 	}
 
 	# Chat interface (SvelteKit base: /chat)
 	handle /chat* {
-		reverse_proxy http://03_interview:3002
+		reverse_proxy http://oute-interview:3002
 	}
 
 	# Health check (responds directly, no proxy)
@@ -68,8 +68,8 @@
 		reverse_proxy http://app:8000
 	}
 
-	# Landing page (99_home) - catch-all for / and assets
+	# Landing page (oute-home) - catch-all for / and assets
 	handle {
-		reverse_proxy http://99_home:3003
+		reverse_proxy http://oute-home:3003
 	}
 }
