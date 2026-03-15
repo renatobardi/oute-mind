@@ -189,6 +189,7 @@ services:
 networks:
   oute-prd-network:
     driver: bridge
+    name: oute-prd-network
 
 volumes:
   postgres-prd-data:
