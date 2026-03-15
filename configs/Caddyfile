@@ -12,13 +12,13 @@ oute.pro {
 		reverse_proxy http://oute-dashboard:3000
 	}
 
-	# oute-main Auth API
-	handle /api/auth* {
+	# oute-main Auth (SvelteKit base: /auth)
+	handle /auth* {
 		reverse_proxy http://oute-auth-profile:3001
 	}
 
-	# oute-main Projects API
-	handle /api/projects* {
+	# oute-main Projects (SvelteKit base: /projects)
+	handle /projects* {
 		reverse_proxy http://oute-projects:3002
 	}
 
