@@ -9,23 +9,23 @@ scrape_configs:
 
   - job_name: 'caddy'
     static_configs:
-      - targets: ['caddy:80']
+      - targets: ['oute-prd-caddy:80']
 
   - job_name: 'fastapi'
     static_configs:
-      - targets: ['app:8000']
+      - targets: ['oute-prd-app:8000']
 
   - job_name: 'redis'
     static_configs:
-      - targets: ['redis:6379']
+      - targets: ['oute-prd-redis:6379']
 
   - job_name: 'postgresql'
     static_configs:
-      - targets: ['postgres:5432']
+      - targets: ['oute-prd-postgres:5432']
 
   - job_name: 'qdrant'
     static_configs:
-      - targets: ['qdrant:6333']
+      - targets: ['oute-prd-qdrant:6333']
 
   # oute-main services monitoring
   - job_name: 'oute-dashboard'

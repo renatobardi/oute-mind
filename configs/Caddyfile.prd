@@ -1,0 +1,74 @@
+oute.pro {
+	encode gzip
+
+	# Security headers
+	header X-Frame-Options DENY
+	header X-Content-Type-Options nosniff
+	header X-XSS-Protection "1; mode=block"
+	header Referrer-Policy no-referrer
+
+	# oute-main Dashboard (SvelteKit base: /dashboard)
+	handle /dashboard* {
+		reverse_proxy http://oute-dashboard:3000
+	}
+
+	# oute-main Auth (SvelteKit base: /auth)
+	handle /auth* {
+		reverse_proxy http://oute-auth-profile:3001
+	}
+
+	# oute-main Projects (SvelteKit base: /projects)
+	handle /projects* {
+		reverse_proxy http://oute-projects:3002
+	}
+
+	# Chat interface (SvelteKit base: /chat)
+	handle /chat* {
+		reverse_proxy http://oute-interview:3002
+	}
+
+	# Health check (responds directly, no proxy)
+	handle /caddy-health {
+		respond "OK" 200
+	}
+
+	# FastAPI (oute-mind) - explicit routes
+	handle /health {
+		reverse_proxy http://oute-prd-app:8000
+	}
+	handle /health/* {
+		reverse_proxy http://oute-prd-app:8000
+	}
+	handle /healthcheck {
+		reverse_proxy http://oute-prd-app:8000
+	}
+	handle /estimate {
+		reverse_proxy http://oute-prd-app:8000
+	}
+	handle /run {
+		reverse_proxy http://oute-prd-app:8000
+	}
+	handle /approve/* {
+		reverse_proxy http://oute-prd-app:8000
+	}
+	handle /status/* {
+		reverse_proxy http://oute-prd-app:8000
+	}
+	handle /api/status {
+		reverse_proxy http://oute-prd-app:8000
+	}
+	handle /docs {
+		reverse_proxy http://oute-prd-app:8000
+	}
+	handle /openapi.json {
+		reverse_proxy http://oute-prd-app:8000
+	}
+	handle /redoc {
+		reverse_proxy http://oute-prd-app:8000
+	}
+
+	# Landing page (oute-home) - catch-all for / and assets
+	handle {
+		reverse_proxy http://oute-home:3003
+	}
+}

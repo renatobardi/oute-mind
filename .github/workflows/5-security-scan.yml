@@ -1,0 +1,161 @@
+name: Security Scan
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '0 2 * * *'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  secret-scan:
+    name: Secret Scanning
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: TruffleHog secret scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.before }}
+          head: ${{ github.event.after }}
+          extra_args: --only-verified
+
+  secret-scan-full:
+    name: Secret Scanning (Full)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: TruffleHog full repo scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          extra_args: --only-verified
+
+  dependency-vulnerabilities:
+    name: Dependency Vulnerabilities
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install uv and tools
+        run: pip install uv pip-audit
+
+      - name: Install dependencies
+        run: uv pip install --system -r pyproject.toml
+
+      - name: Run pip-audit
+        run: pip-audit --format=cyclonedx-json --output=pip-audit-results.json || true
+
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  code-security:
+    name: Python Code Security (bandit)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install bandit
+        run: pip install bandit
+
+      - name: Run bandit
+        run: bandit -r src/ -f json -o bandit-results.json || true
+
+      - name: Check bandit results
+        run: |
+          python3 - <<'EOF'
+          import json, sys
+          try:
+            with open("bandit-results.json") as f:
+              data = json.load(f)
+          except Exception:
+            print("✅ No bandit results")
+            sys.exit(0)
+          high = [r for r in data.get("results", []) if r.get("issue_severity") == "HIGH"]
+          if high:
+            print(f"❌ bandit found {len(high)} HIGH severity issues:")
+            for r in high:
+              print(f"  {r['filename']}:{r['line_number']} — {r['issue_text']}")
+            sys.exit(1)
+          print(f"✅ No HIGH severity issues (checked {len(data.get('results', []))} findings)")
+          EOF
+
+      - name: Upload bandit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-results
+          path: bandit-results.json
+          retention-days: 30
+
+  container-scan:
+    name: Container Image Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./app/Dockerfile
+          push: false
+          load: true
+          tags: oute-app:test
+          build-args: |
+            OPENAI_API_KEY_BUILD=sk-proj-placeholder
+
+      - name: Trivy container scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: oute-app:test
+          format: 'sarif'
+          output: 'trivy-container.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload container scan results
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: 'trivy-container.sarif'
+          category: 'trivy-container-oute-app'

@@ -1,0 +1,152 @@
+version: "3.9"
+
+services:
+  # PostgreSQL - Database develop
+  postgres:
+    image: postgres:16-alpine
+    container_name: oute-dev-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: oute_dev
+    expose:
+      - "5432"
+    volumes:
+      - postgres-dev-data:/var/lib/postgresql/data
+      - ./configs/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - oute-dev-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis - Queue manager develop
+  redis:
+    image: redis:7-alpine
+    container_name: oute-dev-redis
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes"]
+    expose:
+      - "6379"
+    volumes:
+      - redis-dev-data:/data
+    networks:
+      - oute-dev-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Qdrant - Vector database develop
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: oute-dev-qdrant
+    environment:
+      QDRANT_API_KEY: ${QDRANT_API_KEY}
+    expose:
+      - "6333"
+      - "6334"
+    volumes:
+      - qdrant-dev-data:/qdrant/storage
+    networks:
+      - oute-dev-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MindsDB - AI memory management develop
+  mindsdb:
+    image: mindsdb/mindsdb:latest
+    container_name: oute-dev-mindsdb
+    environment:
+      MINDSDB_STORAGE_DIR: /var/lib/mindsdb
+    expose:
+      - "47334"
+      - "47335"
+    volumes:
+      - mindsdb-dev-data:/var/lib/mindsdb
+    networks:
+      - oute-dev-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:47334/api/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI - Application develop
+  app:
+    build:
+      context: .
+      dockerfile: app/Dockerfile
+      args:
+        OPENAI_API_KEY_BUILD: ${OPENAI_API_KEY}
+    container_name: oute-dev-app
+    env_file:
+      - .env
+    environment:
+      QDRANT_URL: http://oute-dev-qdrant:6333
+      POSTGRES_HOST: oute-dev-postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: oute_dev
+      REDIS_HOST: oute-dev-redis
+      REDIS_PORT: 6379
+      MINDSDB_HOST: oute-dev-mindsdb
+      MINDSDB_PORT: 47334
+      FASTAPI_PORT: 8000
+      FASTAPI_WORKERS: 2
+    expose:
+      - "8000"
+    depends_on:
+      postgres:
+        condition: service_started
+      redis:
+        condition: service_started
+      qdrant:
+        condition: service_started
+      mindsdb:
+        condition: service_started
+    networks:
+      - oute-dev-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+  # Caddy - Reverse proxy develop (porta 8888)
+  caddy-dev:
+    image: caddy:2-alpine
+    container_name: oute-dev-caddy
+    ports:
+      - "8888:80"
+    volumes:
+      - ./configs/Caddyfile.dev:/etc/caddy/Caddyfile:ro
+    networks:
+      - oute-dev-network
+    restart: unless-stopped
+    depends_on:
+      - app
+
+networks:
+  oute-dev-network:
+    driver: bridge
+
+volumes:
+  postgres-dev-data:
+    driver: local
+  redis-dev-data:
+    driver: local
+  qdrant-dev-data:
+    driver: local
+  mindsdb-dev-data:
+    driver: local

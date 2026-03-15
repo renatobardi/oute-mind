@@ -2,7 +2,7 @@ name: Health Check
 
 on:
   schedule:
-    - cron: '*/5 * * * *'  # A cada 5 minutos
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -10,29 +10,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Configure Google Cloud SDK
-        run: |
-          echo "${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}" | base64 -d > /tmp/gcp-key.json
-          gcloud auth activate-service-account --key-file=/tmp/gcp-key.json
-          gcloud config set project ${{ secrets.GCP_PROJECT_ID }}
-
-      - name: Get VM IP address
-        id: get_ip
-        run: |
-          VM_IP=$(gcloud compute addresses describe oute-mind-ip \
-            --region=us-central1 --format="get(address)")
-          echo "vm_ip=${VM_IP}" >> $GITHUB_OUTPUT
-
       - name: Check application health
         run: |
-          curl -f http://${{ steps.get_ip.outputs.vm_ip }}/health || exit 1
+          curl -f --connect-timeout 10 --max-time 15 http://${{ secrets.VM_HOSTNAME }}/health || exit 1
 
-      - name: Check API endpoint
+      - name: Check Caddy health
         run: |
-          curl -f http://${{ steps.get_ip.outputs.vm_ip }}/api/status || exit 1
+          curl -f --connect-timeout 10 --max-time 15 http://${{ secrets.VM_HOSTNAME }}/caddy-health || exit 1
 
       - name: Notify if health check fails
         if: failure()
         run: |
-          echo "🚨 Health check failed for VM at ${{ steps.get_ip.outputs.vm_ip }}"
-          # Integrar com Slack/Discord aqui se necessário
+          echo "Health check failed for VM at ${{ secrets.VM_HOSTNAME }}"

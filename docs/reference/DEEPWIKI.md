@@ -69,8 +69,8 @@ Client Request → 6-Agent Pipeline (90-130s) → 3 Cost Scenarios + Risks + Arc
 | `oute-qdrant`      | qdrant/qdrant:latest    | 6333, 6334  | Vector search / RAG            |
 | `oute-mindsdb`     | mindsdb/mindsdb:latest  | 47334, 47335| Agent context synchronization  |
 | `oute-caddy`       | caddy:latest            | 80          | Reverse proxy                  |
-| `oute-prometheus`  | prom/prometheus:latest  | 9090        | Metrics collection             |
-| `oute-grafana`     | grafana/grafana:latest  | 3080        | Monitoring dashboards          |
+| `oute-prometheus`  | prom/prometheus:latest  | 9090 (int.) | Metrics collection             |
+| `oute-grafana`     | grafana/grafana:latest  | 3000 (int.) | Monitoring dashboards          |
 
 Additional `oute-main` services (when available): `oute-dashboard` (:3020), `oute-auth-profile` (:3021), `oute-projects` (:3022).
 
@@ -80,9 +80,9 @@ Additional `oute-main` services (when available): `oute-dashboard` (:3020), `out
 |----------------|------------------------|----------------------------------|
 | FastAPI        | Swagger UI             | `http://<IP>/docs`               |
 | FastAPI        | Health Dashboard       | `http://<IP>/healthcheck`        |
-| Grafana        | Monitoring Dashboards  | `http://<IP>:3080`               |
-| Prometheus     | Metrics Explorer       | `http://<IP>:9090`               |
-| MindsDB        | SQL Editor             | `http://<IP>:47334`              |
+| Grafana        | Monitoring Dashboards  | internal only (`:3000`)          |
+| Prometheus     | Metrics Explorer       | internal only (`:9090`)          |
+| MindsDB        | SQL Editor             | internal only (`:47334`)         |
 | Qdrant         | Vector DB Dashboard    | `http://<IP>:6333/dashboard`     |
 | PostgreSQL     | — (no web UI)          | `psql -h <IP> -p 5432`          |
 | Redis          | — (no web UI)          | `redis-cli -h <IP> -p 6379`     |
@@ -466,7 +466,7 @@ GitHub Actions workflow (`.github/workflows/deploy-to-gcp.yml`):
 Push to main → SSH to VM → git pull → docker compose build → docker compose up -d → curl /health
 ```
 
-Secrets stored in GitHub: `GCP_VM_SSH_PRIVATE_KEY`, `GCP_VM_SSH_KNOWN_HOSTS`, `GCP_VM_USER`, `GCP_VM_HOSTNAME`, `GCP_PROJECT_ID`, `GCP_SERVICE_ACCOUNT_KEY`, `GOOGLE_API_KEY`, `SERPER_API_KEY`, `COMPOSIO_API_KEY`, `OCR_API_KEY`, `QDRANT_API_KEY`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `MINDSDB_ADMIN_PASSWORD`, `GRAFANA_PASSWORD`.
+Secrets stored in GitHub (WIF — sem chaves SSH): `GCP_PROJECT_ID`, `GOOGLE_API_KEY`, `OPENAI_API_KEY`, `SERPER_API_KEY`, `COMPOSIO_API_KEY`, `OCR_API_KEY`, `QDRANT_API_KEY`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `REDIS_PASSWORD`, `MINDSDB_ADMIN_PASSWORD`, `JWT_SECRET`, `GRAFANA_PASSWORD`.
 
 ---
 

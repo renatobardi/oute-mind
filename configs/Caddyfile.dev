@@ -1,0 +1,50 @@
+:80 {
+	encode gzip
+
+	# Health check (responds directly, no proxy)
+	handle /caddy-health {
+		respond "OK" 200
+	}
+
+	# FastAPI routes — proxy all to oute-dev-app
+	handle /health {
+		reverse_proxy oute-dev-app:8000
+	}
+	handle /health/* {
+		reverse_proxy oute-dev-app:8000
+	}
+	handle /estimate {
+		reverse_proxy oute-dev-app:8000
+	}
+	handle /run {
+		reverse_proxy oute-dev-app:8000
+	}
+	handle /approve/* {
+		reverse_proxy oute-dev-app:8000
+	}
+	handle /status/* {
+		reverse_proxy oute-dev-app:8000
+	}
+	handle /api/* {
+		reverse_proxy oute-dev-app:8000
+	}
+	handle /docs {
+		reverse_proxy oute-dev-app:8000
+	}
+	handle /openapi.json {
+		reverse_proxy oute-dev-app:8000
+	}
+	handle /redoc {
+		reverse_proxy oute-dev-app:8000
+	}
+
+	# Catch-all → FastAPI
+	handle {
+		reverse_proxy oute-dev-app:8000
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

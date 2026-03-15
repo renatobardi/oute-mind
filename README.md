@@ -1,272 +1,121 @@
 # oute-mind
 
-> Multi-agent AI system for software project estimation. Powered by CrewAI and Google Gemini.
+Sistema multi-agente de estimativa de projetos de software. Recebe uma descrição de projeto e produz um relatório completo com três cenários de custo (humano, IA, híbrido), análise de risco e recomendações de arquitetura. Parte do ecossistema oute — compartilha infraestrutura de banco de dados e rede com o `oute-main`.
 
 [![Deploy to GCP](https://github.com/renatobardi/oute-mind/actions/workflows/deploy-to-gcp.yml/badge.svg)](https://github.com/renatobardi/oute-mind/actions/workflows/deploy-to-gcp.yml)
 
 ---
 
-## What it does
+## Serviços
 
-oute-mind takes a project description and produces a complete estimation report with three cost scenarios (human-only, AI-only, hybrid), risk analysis, and architectural recommendations. Six specialized AI agents work in sequence, each building on the previous agent's output.
+| Serviço          | Container            | Porta interna | Descrição                              |
+|------------------|----------------------|---------------|----------------------------------------|
+| FastAPI           | `oute-app`          | 8000          | API REST + pipeline de agentes         |
+| PostgreSQL        | `oute-postgres`     | 5432          | Checklists, histórico, padrões         |
+| Redis             | `oute-redis`        | 6379          | Estado de jobs assíncronos             |
+| Qdrant            | `oute-qdrant`       | 6333          | Vector DB para RAG                     |
+| MindsDB           | `oute-mindsdb`      | 47334         | Contexto compartilhado entre agentes   |
+| Caddy             | `oute-caddy`        | 80 / 443      | Reverse proxy + TLS automático         |
+| Prometheus        | `oute-prometheus`   | 9090          | Coleta de métricas (interno)           |
+| Grafana           | `oute-grafana`      | 3000          | Dashboards de monitoramento (interno)  |
+| Dashboard (main)  | `oute-dashboard`    | 3000          | SvelteKit — `/dashboard`              |
+| Auth (main)       | `oute-auth-profile` | 3001          | Auth API — `/api/auth`                |
+| Projects (main)   | `oute-projects`     | 3002          | Projects API — `/api/projects`        |
+| Interview (main)  | `oute-interview`    | 3002          | Chat UI — `/chat`                     |
+| Home (main)       | `oute-home`         | 3003          | Landing page — `/`                    |
+| Oops (main)       | `oute-oops`         | 3004          | Página de erro fallback               |
 
-```
-POST /run → Agent Pipeline (90-130s) → Estimation Report (3 scenarios)
-```
-
-**Input**: project description (text, audio, video, images, documents)
-**Output**: JSON report with cost scenarios, risks, timeline, and architecture
-
----
-
-## Architecture
-
-```
-                          ┌─────────────────────────────────────────────┐
-                          │              GCP VM (ARM64)                 │
-                          │           t2a-standard-4 · 16GB             │
-    Client ──── HTTP ────▶│                                             │
-                          │  ┌───────┐    ┌──────────────────────────┐  │
-                          │  │ Caddy │───▶│  FastAPI (estimator)     │  │
-                          │  │  :80  │    │  :8000 (internal only)   │  │
-                          │  └───────┘    │                          │  │
-                          │               │  ┌─ Agent 1: Discovery   │  │
-                          │               │  ├─ Agent 2: Research    │  │
-                          │               │  ├─ Agent 3: Architect   │  │
-                          │               │  ├─ Agent 4: FinOps      │  │
-                          │               │  ├─ Agent 5: Reviewer    │  │
-                          │               │  └─ Agent 6: Knowledge   │  │
-                          │               └──────────┬───────────────┘  │
-                          │                          │                  │
-                          │  ┌───────────┬───────────┼───────────┐     │
-                          │  │           │           │           │     │
-                          │  ▼           ▼           ▼           ▼     │
-                          │ PostgreSQL  Redis     Qdrant     MindsDB   │
-                          │  :5432      :6379     :6333      :47334    │
-                          └─────────────────────────────────────────────┘
-                                         │
-                          External APIs  │
-                          ───────────────┤
-                          Gemini 2.5     │  generativelanguage.googleapis.com
-                          Jina Reader    │  r.jina.ai
-                          Serper         │  google.serper.dev
-```
+> Todos os serviços usam `expose` (sem binding de porta no host). Caddy é o único ponto de entrada externo.
 
 ---
 
-## Agent Pipeline
-
-| #  | Agent                  | Role                              | Tools                                                              |
-|----|------------------------|-----------------------------------|--------------------------------------------------------------------|
-| 1  | Solution Architect     | Multi-modal discovery interview   | FileRead, OCR, ScrapeWebsite, GetChecklist, SaveEstimation, StoreContext |
-| 2  | Technical Analyst      | RAG research & web validation     | QdrantVectorSearch, Serper, JinaReader, SearchHistory, SearchPatterns, RetrieveContext |
-| 3  | Software Architect     | Design consolidation & persist    | QdrantVectorSearch, SearchPatterns, SaveEstimation, StoreContext, RetrieveContext |
-| 4  | Cost Specialist        | 3 financial scenarios             | ScrapeWebsite, SaveFinancialScenario, RetrieveContext              |
-| 5  | Reviewer & Presenter   | Client-facing review & approval   | QdrantVectorSearch, Serper, SearchHistory, RetrieveContext          |
-| 6  | Knowledge Specialist   | Long-term memory enrichment       | QdrantVectorSearch, SaveEstimation, StoreContext                   |
-
-Agents 1→6 run **sequentially**. Between Agent 1 and Agent 2, the system pauses for **client approval** of the discovered scope (`human_input=True`). Agent 5 also requires human input for final review.
-
----
-
-## API
-
-| Method | Endpoint                  | Description                         |
-|--------|---------------------------|-------------------------------------|
-| GET    | `/health`                 | Lightweight health check            |
-| GET    | `/health/services`        | All 7 backend services status       |
-| GET    | `/healthcheck`            | Visual health dashboard (HTML)      |
-| GET    | `/api/status`             | API version + crew readiness        |
-| POST   | `/run`                    | Start async estimation              |
-| GET    | `/status/{estimation_id}` | Poll estimation progress            |
-| POST   | `/approve/{estimation_id}`| Approve scope (after Agent 1)       |
-| POST   | `/estimate`               | Synchronous estimation (blocking)   |
-| GET    | `/docs`                   | Swagger UI (auto-generated)         |
-
-### Quick test
-
-```bash
-# Health check (via Caddy reverse proxy)
-curl http://localhost/health
-
-# Start estimation (via Caddy reverse proxy)
-curl -X POST http://localhost/run \
-  -H "Content-Type: application/json" \
-  -d '{"project_details": "E-commerce platform with React and FastAPI"}'
-
-# Check status (via Caddy reverse proxy)
-curl http://localhost/status/{estimation_id}
-```
-
----
-
-## Stack
-
-| Component       | Technology              | Purpose                          |
-|-----------------|-------------------------|----------------------------------|
-| Orchestration   | CrewAI v1.10.1          | Agent pipeline management        |
-| LLM             | Gemini 2.5 Flash-Lite   | Multi-modal reasoning            |
-| Database        | PostgreSQL 16 (JSONB)   | Checklists, history, patterns    |
-| Vector DB       | Qdrant                  | RAG semantic search              |
-| Cache/Queue     | Redis 7                 | Async job state (TTL 24h)        |
-| Memory          | MindsDB                 | Agent context synchronization    |
-| Web Reader      | Jina Reader (cloud)     | Documentation extraction         |
-| API             | FastAPI + Uvicorn       | REST endpoints                   |
-| Reverse Proxy   | Caddy                   | HTTP routing, auto TLS           |
-| Monitoring      | Prometheus + Grafana    | Metrics and dashboards           |
-| CI/CD           | GitHub Actions          | Auto-deploy on push to main      |
-| Infrastructure  | GCP Compute Engine      | ARM64 VM (t2a-standard-4)        |
-
----
-
-## Quick Start
-
-### Prerequisites
-
-- Docker & Docker Compose v2+
-- `GOOGLE_API_KEY` (required)
-- `SERPER_API_KEY` (optional, for web search)
-
-### Run locally
+## Desenvolvimento local
 
 ```bash
 git clone https://github.com/renatobardi/oute-mind.git
 cd oute-mind
 
-# Configure
+# Configurar variáveis de ambiente
 cp .env.production.example .env.production
-# Edit .env.production with your API keys
+# Editar .env.production com suas API keys
 
-# Start everything
+# Subir todos os serviços
 docker compose up -d
 
-# Verify
+# Verificar saúde
 curl http://localhost/health
 ```
 
-### Deploy to GCP
-
-Push to `main` triggers automatic deployment via GitHub Actions.
-
-Manual deploy:
+> **Dependência**: `oute-main` deve estar clonado em `../oute-main` (mesmo nível que `oute-mind`), pois o `docker-compose.yml` faz build dos pacotes de lá.
 
 ```bash
-gcloud compute ssh oute-mind --zone=us-central1-a
-cd ~/oute-mind
-git pull origin main
-export $(cat .env.production | grep -v '^#' | xargs)
-docker compose build --no-cache app
-docker compose up -d app
+# Testar o pipeline de estimativa
+curl -X POST http://localhost/run \
+  -H "Content-Type: application/json" \
+  -d '{"project_details": "E-commerce com React e FastAPI"}'
+
+# Verificar status
+curl http://localhost/status/{estimation_id}
 ```
 
 ---
 
-## Configuration
+## Stack tecnológica
+
+| Camada           | Tecnologia                        | Versão          |
+|------------------|-----------------------------------|-----------------|
+| Orquestração     | CrewAI                            | 1.10.1          |
+| LLM              | Gemini 2.5 Flash-Lite (Google)    | via `google/gemini-2.5-flash-lite` |
+| Linguagem        | Python                            | >=3.10, <3.14   |
+| API              | FastAPI + Uvicorn                 | >=0.104.0       |
+| Banco de dados   | PostgreSQL                        | 16-alpine       |
+| Vector DB        | Qdrant                            | latest          |
+| Cache / Queue    | Redis                             | 7-alpine        |
+| Memória agentes  | MindsDB                           | latest          |
+| Web reader       | Jina Reader                       | cloud (r.jina.ai) |
+| Busca web        | Serper                            | cloud (google.serper.dev) |
+| Proxy reverso    | Caddy                             | latest          |
+| Monitoramento    | Prometheus + Grafana              | latest          |
+| Infra            | GCP Compute Engine (ARM64)        | t2a-standard-4  |
+
+---
+
+## CI/CD
+
+Push para `main` dispara deploy automático via GitHub Actions (`.github/workflows/deploy-to-gcp.yml`):
+
+```
+push → main → autenticação WIF → SSH via gcloud → git pull (oute-mind + oute-main) → docker compose build → docker compose up -d → health check
+```
+
+Autenticação sem chaves SSH — usa Workload Identity Federation (WIF) do GCP.
+
+Deploy manual de emergência:
 
 ```bash
-# Required
-GOOGLE_API_KEY=...                 # Gemini API
-MODEL=google/gemini-2.5-flash-lite # LLM model
-OPENAI_API_KEY=sk-proj-...        # Required by CrewAI/LiteLLM (not used for requests)
-
-# Databases (auto-generated in production)
-POSTGRES_USER=oute_prod_user
-POSTGRES_PASSWORD=...
-POSTGRES_DB=oute_production
-REDIS_PASSWORD=...
-QDRANT_API_KEY=...
-QDRANT_URL=http://qdrant:6333
-
-# Optional
-SERPER_API_KEY=...                 # Web search
-OCR_API_KEY=...                    # Document processing
-LLM_TEMPERATURE=0.7               # 0.0-1.0
-FASTAPI_WORKERS=4                  # Uvicorn workers
+gcloud compute ssh oute-mind --zone=us-central1-a \
+  --command="sudo -u renatobardicabral_gmail_com bash -c '
+    cd ~/oute-mind && git pull origin main
+    cd ~/oute-main && git pull origin main
+    cd ~/oute-mind && docker compose build && docker compose up -d
+  '"
 ```
 
 ---
 
-## Data Model
+## Documentação
 
-### PostgreSQL (`estimator` schema)
-
-| Table                  | Purpose                                    |
-|------------------------|--------------------------------------------|
-| `checklists`           | Discovery checklists by phase (JSONB)      |
-| `estimation_history`   | Agent findings per project/team/phase      |
-| `patterns`             | Reusable design patterns (JSONB)           |
-| `financial_scenarios`  | Cost scenarios: human-only, ai-only, hybrid|
-
-### Qdrant
-
-| Collection       | Purpose                                     |
-|------------------|---------------------------------------------|
-| `knowledge_base` | RAG documents for semantic search           |
-
----
-
-## Monitoring
-
-| Service    | URL / Access                                              |
-|------------|-----------------------------------------------------------|
-| API Docs   | `http://<IP>/docs` (via Caddy)                            |
-| Health     | `http://<IP>/healthcheck` (via Caddy)                     |
-| Grafana    | Internal only — access via `docker exec` or SSH tunnel    |
-| Prometheus | Internal only — access via `docker exec` or SSH tunnel    |
-
-> **Note**: Grafana and Prometheus are not exposed on host ports. To access them, use an SSH tunnel:
-> ```bash
-> # Grafana (internal port 3000)
-> gcloud compute ssh oute-mind --zone=us-central1-a -- -L 3080:grafana:3000
-> # Then open http://localhost:3080 in your browser
->
-> # Prometheus (internal port 9090)
-> gcloud compute ssh oute-mind --zone=us-central1-a -- -L 9090:prometheus:9090
-> # Then open http://localhost:9090 in your browser
-> ```
-
----
-
-## Project Structure
-
-```
-oute-mind/
-├── src/estimator/
-│   ├── config/
-│   │   ├── agents.yaml          # 6 agent definitions (role, goal, backstory)
-│   │   └── tasks.yaml           # 6 task definitions (description, expected_output)
-│   ├── tools/
-│   │   ├── postgres_tool.py     # GetChecklist, SearchHistory, SearchPatterns, Save*
-│   │   ├── jina_reader_tool.py  # Cloud web reader (r.jina.ai)
-│   │   └── mindsdb_tool.py      # StoreContext, RetrieveContext
-│   ├── crew.py                  # Pipeline orchestration (6 agents, sequential)
-│   ├── api.py                   # FastAPI endpoints (9 routes)
-│   ├── dashboard.html           # Health check UI
-│   └── main.py                  # CLI entrypoint
-├── configs/
-│   ├── Caddyfile                # Reverse proxy routes
-│   ├── postgres-init.sql        # Schema: 4 tables + indexes + triggers
-│   └── prometheus.yml           # Metrics scrape targets
-├── app/Dockerfile               # Python 3.13-slim + uv
-├── docker-compose.yml           # 8 services + 3 oute-main services
-└── reference/
-    ├── DEEPWIKI.md              # Technical deep dive
-    ├── architecture.excalidraw.md # Diagrams for Excalidraw
-    └── implementation_plan.md   # Roadmap
-```
-
----
-
-## Troubleshooting
-
-| Problem                    | Fix                                                       |
-|----------------------------|------------------------------------------------------------|
-| OPENAI_API_KEY error       | Set any `sk-proj-...` value in `.env.production`           |
-| Gemini 404                 | Check `MODEL` env var — use `google/gemini-2.5-flash-lite` |
-| CrewAI google-genai error  | Ensure `crewai[google-genai]` extra in pyproject.toml      |
-| QdrantConfig missing       | Set `QDRANT_URL` and `QDRANT_API_KEY` env vars             |
-| Out of memory              | `docker stats` — need 16GB minimum                         |
-| 504 timeout                | Check Gemini API rate limits or increase Caddy timeout     |
+| Arquivo                                        | Conteúdo                                      |
+|------------------------------------------------|-----------------------------------------------|
+| `docs/DEPLOYMENT_GCP.md`                      | Setup completo de infraestrutura GCP          |
+| `docs/api/endpoints.md`                       | Referência de endpoints REST                  |
+| `docs/architecture/architecture.excalidraw.md`| Diagramas de arquitetura (Excalidraw)         |
+| `docs/adr/001-gcp-arm64-vm.md`               | Por que GCP ARM64                             |
+| `docs/adr/002-crewai-sequential-pipeline.md`  | Por que CrewAI + pipeline sequencial          |
+| `docs/adr/003-gemini-como-llm.md`             | Por que Gemini 2.5 Flash-Lite                 |
+| `docs/adr/004-qdrant-para-rag.md`             | Por que Qdrant para RAG                       |
+| `docs/reference/DEEPWIKI.md`                  | Deep dive técnico do sistema                  |
+| `docs/reference/implementation_plan.md`        | Roadmap de implementação                      |
 
 ---
 
