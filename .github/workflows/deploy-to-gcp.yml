@@ -51,7 +51,7 @@ jobs:
                 fi
                 echo \"Using: \$(docker compose version)\"
 
-                OUTE_MIND=\$(find /home -maxdepth 2 -name oute-mind -type d 2>/dev/null | head -1)
+                OUTE_MIND=/home/renatobardicabral_gmail_com/oute-mind
                 echo \"Found oute-mind at: \$OUTE_MIND\"
 
                 git config --global --add safe.directory \$OUTE_MIND
@@ -133,7 +133,7 @@ jobs:
             --tunnel-through-iap \
             --command='
               sudo bash -c "
-                OUTE_MIND=\$(find /home -maxdepth 2 -name oute-mind -type d 2>/dev/null | head -1)
+                OUTE_MIND=/home/renatobardicabral_gmail_com/oute-mind
                 cd \$OUTE_MIND 2>/dev/null || true
                 echo === Container Status ===
                 docker compose ps
