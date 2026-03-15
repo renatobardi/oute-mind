@@ -1,0 +1,146 @@
+name: Diagnose Production Issues
+
+on:
+  workflow_dispatch:
+    inputs:
+      full_debug:
+        description: 'Run full debug with more detailed logs'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_ZONE: us-central1-a
+  VM_NAME: oute-mind
+  PROJECT_ID: oute-mind
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Authenticate to GCP
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/897931738821/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: github-actions-deploy@oute-mind.iam.gserviceaccount.com
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Run diagnostics on VM
+        run: |
+          ZONE=$(gcloud compute instances list --filter="name:${{ env.VM_NAME }}" --format="value(zone)" --project=${{ env.PROJECT_ID }} | head -1)
+          gcloud compute ssh ${{ env.VM_NAME }} \
+            --zone=$ZONE \
+            --project=${{ env.PROJECT_ID }} \
+            --tunnel-through-iap \
+            --command='
+              sudo bash -c "
+                OUTE_MIND=\$(find /home -maxdepth 2 -name oute-mind -type d 2>/dev/null | head -1)
+                cd \$OUTE_MIND 2>/dev/null || true
+
+                echo \"🔍 OUTE-MIND Production Diagnostics\"
+                echo \"=====================================\"
+                echo \"\"
+
+                echo \"📦 Docker Containers Status:\"
+                echo \"=============================\"
+                docker compose ps
+                echo \"\"
+
+                echo \"🧪 Testing Direct Endpoints:\"
+                echo \"=============================\"
+
+                echo \"Testing FastAPI app (port 8000)...\"
+                if docker exec oute-app curl -sf http://localhost:8000/health > /dev/null 2>&1; then
+                  echo \"✅ oute-app is healthy\"
+                  echo \"Health response:\"
+                  docker exec oute-app curl -s http://localhost:8000/health
+                  echo \"\"
+                else
+                  echo \"❌ oute-app NOT responding — checking logs\"
+                  docker compose logs --tail=20 app 2>&1 || true
+                fi
+                echo \"\"
+
+                echo \"Testing PostgreSQL...\"
+                if docker exec oute-postgres pg_isready -U postgres > /dev/null 2>&1; then
+                  echo \"✅ postgres is healthy\"
+                else
+                  echo \"❌ postgres NOT ready\"
+                  docker compose logs --tail=10 postgres 2>&1 || true
+                fi
+                echo \"\"
+
+                echo \"Testing Redis...\"
+                if docker exec oute-redis redis-cli ping 2>/dev/null | grep -q PONG; then
+                  echo \"✅ redis is healthy\"
+                else
+                  echo \"❌ redis NOT responding\"
+                  docker compose logs --tail=10 redis 2>&1 || true
+                fi
+                echo \"\"
+
+                echo \"Testing Qdrant (port 6333)...\"
+                if docker exec oute-qdrant curl -sf http://localhost:6333/health > /dev/null 2>&1; then
+                  echo \"✅ qdrant is healthy\"
+                else
+                  echo \"❌ qdrant NOT responding\"
+                  docker compose logs --tail=10 qdrant 2>&1 || true
+                fi
+                echo \"\"
+
+                echo \"🔄 Caddy Reverse Proxy Status:\"
+                echo \"==============================\"
+                docker compose ps caddy
+                echo \"\"
+                echo \"Caddy logs (last 30 lines):\"
+                docker compose logs --tail=30 caddy 2>&1 || true
+                echo \"\"
+
+                echo \"🌐 Testing via Caddy (Port 80):\"
+                echo \"================================\"
+                echo \"GET http://localhost:80/health\"
+                RESPONSE=\$(curl -s http://localhost:80/health 2>&1 | head -c 500)
+                echo \"\$RESPONSE\"
+                echo \"\"
+                echo \"GET http://localhost:80/caddy-health\"
+                curl -s http://localhost:80/caddy-health || echo \"❌ caddy-health FAILED\"
+                echo \"\"
+
+                echo \"📊 Disk Space:\"
+                df -h | head -5
+                echo \"\"
+
+                echo \"💾 Memory Usage:\"
+                free -h | head -2
+                echo \"\"
+
+                if [ \"${{ github.event.inputs.full_debug }}\" = \"true\" ]; then
+                  echo \"🔬 Full Debug — All container logs (last 50 lines each):\"
+                  echo \"==========================================================\"
+                  for svc in app postgres redis qdrant mindsdb caddy prometheus grafana; do
+                    echo \"=== \$svc ===\"
+                    docker compose logs --tail=50 \$svc 2>&1 || true
+                    echo \"\"
+                  done
+                fi
+              "
+            '
+
+      - name: Diagnose result
+        if: success()
+        run: echo "✅ Diagnostics completed — check logs above for details"
+
+      - name: Diagnose failed
+        if: failure()
+        run: |
+          echo "❌ Diagnostics failed — SSH connection issue or VM unreachable"
+          exit 1

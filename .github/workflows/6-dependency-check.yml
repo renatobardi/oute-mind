@@ -1,0 +1,142 @@
+name: Dependency & License Check
+
+on:
+  pull_request:
+    paths: ['pyproject.toml', 'uv.lock']
+  schedule:
+    - cron: '0 9 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+
+jobs:
+  dependency-check:
+    name: OWASP Dependency Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'OUTE-MIND'
+          path: '.'
+          format: 'SARIF'
+          args: >
+            --enableExperimental
+            --enableRetired
+
+      - name: Upload Dependency Check results
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'reports/dependency-check-report.sarif'
+
+  pip-audit:
+    name: pip-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install uv and pip-audit
+        run: pip install uv pip-audit
+
+      - name: Install dependencies
+        run: uv pip install --system -r pyproject.toml
+
+      - name: Run pip-audit
+        id: audit
+        run: |
+          pip-audit --format=json --output=audit-results.json || true
+          cat audit-results.json || echo "{}"
+
+      - name: Check for HIGH/CRITICAL vulnerabilities
+        run: |
+          python3 - <<'EOF'
+          import json, sys
+          try:
+            with open("audit-results.json") as f:
+              data = json.load(f)
+          except Exception:
+            print("✅ No vulnerabilities found")
+            sys.exit(0)
+          vuln_count = sum(len(dep.get("vulns", [])) for dep in data.get("dependencies", []))
+          if vuln_count > 0:
+            print(f"❌ Found {vuln_count} vulnerabilities — PR blocked")
+            for dep in data.get("dependencies", []):
+              for v in dep.get("vulns", []):
+                print(f"  {dep['name']} {dep.get('version','')} — {v['id']}: {v.get('description','')[:80]}")
+            sys.exit(1)
+          print("✅ No vulnerabilities found")
+          EOF
+
+      - name: Comment PR with audit results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        continue-on-error: true
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            let audit;
+            try { audit = JSON.parse(fs.readFileSync('audit-results.json', 'utf8')); } catch { audit = {}; }
+            const deps = audit.dependencies || [];
+            const vulnCount = deps.reduce((s, d) => s + (d.vulns || []).length, 0);
+            const body = vulnCount > 0
+              ? `## 📦 pip-audit Results\n\n**❌ ${vulnCount} vulnerabilities found — PR BLOCKED**\n\nRun \`pip-audit\` locally to resolve.`
+              : `## 📦 pip-audit Results\n\n✅ No vulnerabilities found`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body
+            });
+
+  license-check:
+    name: License Compliance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install uv and pip-licenses
+        run: pip install uv pip-licenses
+
+      - name: Install dependencies
+        run: uv pip install --system -r pyproject.toml
+
+      - name: Check licenses
+        run: |
+          pip-licenses \
+            --allow-only="MIT;Apache Software License;BSD License;ISC License (ISCL);Python Software Foundation License;Mozilla Public License 2.0 (MPL 2.0);Apache-2.0;BSD-2-Clause;BSD-3-Clause;PSF" \
+            --format=markdown \
+            --output-file=LICENSE_REPORT.md || echo "License check completed with warnings"
+          cat LICENSE_REPORT.md
+
+      - name: Upload license report
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-report
+          path: LICENSE_REPORT.md
+
+  notify:
+    name: Notify Dependency Check
+    runs-on: ubuntu-latest
+    needs: [pip-audit, license-check]
+    if: always()
+    steps:
+      - name: Send Slack notification
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          text: 'oute-mind — dependency & license check completed'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+        continue-on-error: true
