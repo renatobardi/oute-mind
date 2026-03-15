@@ -1,8 +1,8 @@
-name: Deploy to GCP
+name: Deploy oute-mind to VM — Develop
 
 on:
   push:
-    branches: [main]
+    branches: [develop]
   workflow_dispatch:
 
 permissions:
@@ -17,7 +17,7 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 25
 
     steps:
       - name: Authenticate to GCP
@@ -31,10 +31,10 @@ jobs:
         with:
           project_id: ${{ env.PROJECT_ID }}
 
-      - name: Deploy to VM
+      - name: Deploy develop stack to VM
         run: |
           ZONE=$(gcloud compute instances list --filter="name:${{ env.VM_NAME }}" --format="value(zone)" --project=${{ env.PROJECT_ID }} | head -1)
-          echo "Deploying to zone: $ZONE"
+          echo "Deploying develop to zone: $ZONE"
           gcloud compute ssh ${{ env.VM_NAME }} \
             --zone=$ZONE \
             --project=${{ env.PROJECT_ID }} \
@@ -43,13 +43,11 @@ jobs:
               set -e
               sudo bash -c "
                 if ! docker compose version &>/dev/null; then
-                  echo \"Installing docker compose v2 plugin...\"
                   mkdir -p /usr/local/lib/docker/cli-plugins
                   ARCH=\$(uname -m)
                   curl -fsSL \"https://github.com/docker/compose/releases/latest/download/docker-compose-linux-\$ARCH\" -o /usr/local/lib/docker/cli-plugins/docker-compose
                   chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
                 fi
-                echo \"Using: \$(docker compose version)\"
 
                 OUTE_MIND=\$(find /home -maxdepth 2 -name oute-mind -type d 2>/dev/null | head -1)
                 echo \"Found oute-mind at: \$OUTE_MIND\"
@@ -57,25 +55,27 @@ jobs:
                 git config --global --add safe.directory \$OUTE_MIND
 
                 cd \$OUTE_MIND
-                git fetch origin main
-                git checkout main 2>/dev/null || git checkout -b main origin/main
-                git reset --hard origin/main
+                git fetch origin develop
+                git checkout develop 2>/dev/null || git checkout -b develop origin/develop
+                git reset --hard origin/develop
                 git clean -fd --exclude=\".env*\"
-                ln -sf .env.production .env
+                ln -sf .env.develop .env
 
-                echo \"=== Removing old images ===\"
-                docker compose down 2>/dev/null || true
-                docker rmi oute-app 2>/dev/null || true
-                docker image prune -f
+                docker network inspect oute-mind-dev-network &>/dev/null || docker network create oute-mind-dev-network
+                echo \"oute-mind-dev-network OK\"
 
-                echo \"=== Building images ===\"
-                docker compose build --no-cache --pull
-                docker compose up -d
-                echo \"Containers started successfully\"
+                echo \"=== Removendo imagens dev antigas ===\"
+                docker compose -f docker-compose.develop.yml down 2>/dev/null || true
+                docker rmi oute-dev-app 2>/dev/null || true
+
+                echo \"=== Build das imagens de develop ===\"
+                docker compose -f docker-compose.develop.yml build --no-cache --pull
+                docker compose -f docker-compose.develop.yml up -d
+                echo \"Develop stack iniciada\"
               "
             '
 
-      - name: Health checks
+      - name: Health checks — develop
         run: |
           ZONE=$(gcloud compute instances list --filter="name:${{ env.VM_NAME }}" --format="value(zone)" --project=${{ env.PROJECT_ID }} | head -1)
           gcloud compute ssh ${{ env.VM_NAME }} \
@@ -85,31 +85,25 @@ jobs:
             --command='
               sudo bash -c "
                 FAILED=0
-                for svc in \"App:oute-app:8000:/health\"; do
+                for svc in \"App:oute-dev-app:8000:/health\"; do
                   name=\$(echo \"\$svc\" | cut -d: -f1)
                   container=\$(echo \"\$svc\" | cut -d: -f2)
                   port=\$(echo \"\$svc\" | cut -d: -f3)
                   path=\$(echo \"\$svc\" | cut -d: -f4)
                   OK=0
-                  for i in \$(seq 1 20); do
+                  for i in \$(seq 1 10); do
                     if docker exec \"\$container\" sh -c \"curl -sf http://127.0.0.1:\${port}\${path}\" > /dev/null 2>&1; then
-                      echo \"\${name} health check PASSED\"
+                      echo \"\${name} PASSED\"
                       OK=1
                       break
                     fi
-                    echo \"  \${name} attempt \${i}/20...\"
+                    echo \"  \${name} tentativa \${i}/10...\"
                     sleep 3
                   done
-                  if [ \"\$OK\" -eq 0 ]; then
-                    echo \"\${name} health check FAILED\"
-                    FAILED=\$((FAILED+1))
-                  fi
+                  [ \"\$OK\" -eq 0 ] && echo \"\${name} FAILED\" && FAILED=\$((FAILED+1))
                 done
-                if [ \"\$FAILED\" -gt 0 ]; then
-                  echo \"Health check failed — aborting\"
-                  exit 1
-                fi
-                echo \"Health check: passed\"
+                [ \"\$FAILED\" -gt 0 ] && echo \"Health check falhou\" && exit 1
+                echo \"Health check: OK\"
               "
             '
 
@@ -118,10 +112,10 @@ jobs:
         run: |
           VM_IP=$(gcloud compute addresses describe oute-mind-ip \
             --region=us-central1 --project=${{ env.PROJECT_ID }} --format="get(address)")
-          echo "oute-mind deployed successfully!"
-          echo "  API:   http://${VM_IP}/health"
-          echo "  Docs:  http://${VM_IP}/docs"
-          echo "  Caddy: http://${VM_IP}/caddy-health"
+          echo "oute-mind develop deployed!"
+          echo "  API:   http://${VM_IP}:8888/health"
+          echo "  Docs:  http://${VM_IP}:8888/docs"
+          echo "  Caddy: http://${VM_IP}:8888/caddy-health"
 
       - name: Capture logs on failure
         if: failure()
@@ -136,10 +130,10 @@ jobs:
                 OUTE_MIND=\$(find /home -maxdepth 2 -name oute-mind -type d 2>/dev/null | head -1)
                 cd \$OUTE_MIND 2>/dev/null || true
                 echo === Container Status ===
-                docker compose ps
-                for svc in app postgres redis qdrant mindsdb caddy prometheus grafana; do
+                docker compose -f docker-compose.develop.yml ps
+                for svc in app postgres redis qdrant mindsdb caddy-dev; do
                   echo === \$svc Logs ===
-                  docker compose logs --tail=30 \$svc 2>&1 || true
+                  docker compose -f docker-compose.develop.yml logs --tail=20 \$svc 2>&1 || true
                 done
               "
-            ' || echo "Could not connect to VM for log capture"
+            ' || echo "Não foi possível conectar à VM para capturar logs"
