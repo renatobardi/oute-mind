@@ -1,5 +1,4 @@
-# Caddy - Acesso via IP (sem domínio)
-:80 {
+oute.pro {
 	encode gzip
 
 	# Security headers
