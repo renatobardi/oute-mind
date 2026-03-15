@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 import sys
+
 from dotenv import load_dotenv
+
 from estimator.crew import SoftwareProjectEstimatorWithRagCrew
 
 load_dotenv()

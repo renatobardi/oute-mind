@@ -1,4 +1,5 @@
 import os
+
 from dotenv import load_dotenv
 
 # Load environment variables (try .env.production first, then .env)
@@ -19,20 +20,13 @@ if "OPENAI_API_KEY" not in os.environ or not os.environ.get("OPENAI_API_KEY"):
     except Exception as e:
         print(f"Warning: Could not read OPENAI_API_KEY from {_env_path}: {e}")
 
-from crewai import LLM
-from crewai import Agent, Crew, Process, Task
+from crewai import LLM, Agent, Crew, Process, Task
 from crewai.project import CrewBase, agent, crew, task
 
 # Get model from environment or default
 DEFAULT_MODEL = os.getenv("MODEL", "google/gemini-2.5-flash-lite")
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.7"))
-from crewai_tools import (
-	FileReadTool,
-	OCRTool,
-	ScrapeWebsiteTool,
-	QdrantVectorSearchTool,
-	SerperDevTool
-)
+from crewai_tools import FileReadTool, OCRTool, QdrantVectorSearchTool, ScrapeWebsiteTool, SerperDevTool
 from crewai_tools.tools.qdrant_vector_search_tool.qdrant_search_tool import QdrantConfig
 
 # Qdrant configuration from environment
@@ -42,15 +36,16 @@ QDRANT_CONFIG = QdrantConfig(
     collection_name=os.getenv("QDRANT_COLLECTION", "knowledge_base"),
 )
 from estimator.tools import (
-	GetChecklistTool,
-	SearchEstimationHistoryTool,
-	SearchPatternsTool,
-	SaveEstimationTool,
-	SaveFinancialScenarioTool,
-	JinaReaderTool,
-	StoreContextTool,
-	RetrieveContextTool,
+    GetChecklistTool,
+    JinaReaderTool,
+    RetrieveContextTool,
+    SaveEstimationTool,
+    SaveFinancialScenarioTool,
+    SearchEstimationHistoryTool,
+    SearchPatternsTool,
+    StoreContextTool,
 )
+
 
 @CrewBase
 class SoftwareProjectEstimatorWithRagCrew:

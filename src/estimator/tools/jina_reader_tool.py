@@ -53,7 +53,7 @@ class JinaReaderTool(BaseTool):
         except requests.exceptions.Timeout:
             return f"Timeout reading '{url}'. The page took too long to respond."
         except requests.exceptions.ConnectionError:
-            return f"Could not connect to Jina Reader cloud API (r.jina.ai)."
+            return "Could not connect to Jina Reader cloud API (r.jina.ai)."
         except requests.exceptions.HTTPError as e:
             return f"HTTP error reading '{url}': {e}"
         except Exception as e:
