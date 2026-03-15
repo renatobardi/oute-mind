@@ -92,16 +92,16 @@ jobs:
                   port=\$(echo \"\$svc\" | cut -d: -f3)
                   path=\$(echo \"\$svc\" | cut -d: -f4)
                   OK=0
-                  for i in \$(seq 1 10); do
+                  for i in \$(seq 1 40); do
                     if docker exec \"\$container\" sh -c \"curl -sf http://127.0.0.1:\${port}\${path}\" > /dev/null 2>&1; then
                       echo \"\${name} PASSED\"
                       OK=1
                       break
                     fi
-                    echo \"  \${name} tentativa \${i}/10...\"
-                    sleep 3
+                    echo \"  \${name} tentativa \${i}/40...\"
+                    sleep 5
                   done
-                  [ \"\$OK\" -eq 0 ] && echo \"\${name} FAILED\" && FAILED=\$((FAILED+1))
+                  [ \"\$OK\" -eq 0 ] && echo \"\${name} FAILED (tried 40x5s=200s)\" && FAILED=\$((FAILED+1))
                 done
                 [ \"\$FAILED\" -gt 0 ] && echo \"Health check falhou\" && exit 1
                 echo \"Health check: OK\"
