@@ -105,13 +105,17 @@ gcloud compute ssh oute-mind --zone=us-central1-a \
 
 ## Documentação
 
-| Arquivo                              | Conteúdo                                      |
-|--------------------------------------|-----------------------------------------------|
-| `docs/DEPLOYMENT_GCP.md`            | Setup completo de infraestrutura GCP          |
-| `docs/reference/DEEPWIKI.md`        | Deep dive técnico do sistema                  |
-| `docs/reference/architecture.excalidraw.md` | Diagramas de arquitetura (Excalidraw) |
-| `docs/reference/implementation_plan.md`     | Roadmap de implementação              |
-| `docs/adr/`                         | Architecture Decision Records                 |
+| Arquivo                                        | Conteúdo                                      |
+|------------------------------------------------|-----------------------------------------------|
+| `docs/DEPLOYMENT_GCP.md`                      | Setup completo de infraestrutura GCP          |
+| `docs/api/endpoints.md`                       | Referência de endpoints REST                  |
+| `docs/architecture/architecture.excalidraw.md`| Diagramas de arquitetura (Excalidraw)         |
+| `docs/adr/001-gcp-arm64-vm.md`               | Por que GCP ARM64                             |
+| `docs/adr/002-crewai-sequential-pipeline.md`  | Por que CrewAI + pipeline sequencial          |
+| `docs/adr/003-gemini-como-llm.md`             | Por que Gemini 2.5 Flash-Lite                 |
+| `docs/adr/004-qdrant-para-rag.md`             | Por que Qdrant para RAG                       |
+| `docs/reference/DEEPWIKI.md`                  | Deep dive técnico do sistema                  |
+| `docs/reference/implementation_plan.md`        | Roadmap de implementação                      |
 
 ---
 
