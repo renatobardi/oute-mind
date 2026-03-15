@@ -47,10 +47,6 @@ jobs:
               git checkout -- .
               git pull origin main
 
-              cd /home/${{ env.DEPLOY_USER }}/oute-main
-              git pull origin main
-              cd /home/${{ env.DEPLOY_USER }}/oute-mind
-
               ln -sf .env.production .env
 
               docker compose build
