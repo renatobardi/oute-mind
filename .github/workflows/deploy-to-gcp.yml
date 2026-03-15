@@ -65,13 +65,13 @@ jobs:
                 ln -sf .env.production .env
 
                 echo \"=== Removing old images ===\"
-                docker compose down 2>/dev/null || true
-                docker rmi oute-app 2>/dev/null || true
+                docker compose -f docker-compose.prd.yml down 2>/dev/null || true
+                docker rmi oute-prd-app 2>/dev/null || true
                 docker image prune -f
 
                 echo \"=== Building images ===\"
-                docker compose build --no-cache --pull
-                docker compose up -d
+                docker compose -f docker-compose.prd.yml build --no-cache --pull
+                docker compose -f docker-compose.prd.yml up -d
                 echo \"Containers started successfully\"
               "
             '
@@ -86,7 +86,7 @@ jobs:
             --command='
               sudo -u ${{ env.DEPLOY_USER }} bash -c "
                 FAILED=0
-                for svc in \"App:oute-app:8000:/health\"; do
+                for svc in \"App:oute-prd-app:8000:/health\"; do
                   name=\$(echo \"\$svc\" | cut -d: -f1)
                   container=\$(echo \"\$svc\" | cut -d: -f2)
                   port=\$(echo \"\$svc\" | cut -d: -f3)
@@ -137,10 +137,10 @@ jobs:
                 OUTE_MIND=/home/renatobardicabral_gmail_com/oute-mind
                 cd \$OUTE_MIND 2>/dev/null || true
                 echo === Container Status ===
-                docker compose ps
+                docker compose -f docker-compose.prd.yml ps
                 for svc in app postgres redis qdrant mindsdb caddy prometheus grafana; do
                   echo === \$svc Logs ===
-                  docker compose logs --tail=30 \$svc 2>&1 || true
+                  docker compose -f docker-compose.prd.yml logs --tail=30 \$svc 2>&1 || true
                 done
               "
             ' || echo "Could not connect to VM for log capture"

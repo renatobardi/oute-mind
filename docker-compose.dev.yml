@@ -15,7 +15,7 @@ services:
       - postgres-dev-data:/var/lib/postgresql/data
       - ./configs/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
-      - oute-mind-dev-network
+      - oute-dev-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
@@ -33,7 +33,7 @@ services:
     volumes:
       - redis-dev-data:/data
     networks:
-      - oute-mind-dev-network
+      - oute-dev-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -53,7 +53,7 @@ services:
     volumes:
       - qdrant-dev-data:/qdrant/storage
     networks:
-      - oute-mind-dev-network
+      - oute-dev-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
@@ -73,7 +73,7 @@ services:
     volumes:
       - mindsdb-dev-data:/var/lib/mindsdb
     networks:
-      - oute-mind-dev-network
+      - oute-dev-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:47334/api/status"]
@@ -114,7 +114,7 @@ services:
       mindsdb:
         condition: service_started
     networks:
-      - oute-mind-dev-network
+      - oute-dev-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -130,15 +130,15 @@ services:
     ports:
       - "8888:80"
     volumes:
-      - ./configs/Caddyfile.develop:/etc/caddy/Caddyfile:ro
+      - ./configs/Caddyfile.dev:/etc/caddy/Caddyfile:ro
     networks:
-      - oute-mind-dev-network
+      - oute-dev-network
     restart: unless-stopped
     depends_on:
       - app
 
 networks:
-  oute-mind-dev-network:
+  oute-dev-network:
     driver: bridge
 
 volumes:

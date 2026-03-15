@@ -62,19 +62,19 @@ jobs:
                 git clean -fd --exclude=\".env*\"
                 ln -sf .env.develop .env
 
-                docker network inspect oute-mind-dev-network &>/dev/null || docker network create oute-mind-dev-network
-                echo \"oute-mind-dev-network OK\"
+                docker network inspect oute-dev-network &>/dev/null || docker network create oute-dev-network
+                echo \"oute-dev-network OK\"
 
                 echo \"=== Removendo containers dev antigos ===\"
-                docker compose -f docker-compose.develop.yml down --remove-orphans 2>/dev/null || true
+                docker compose -f docker-compose.dev.yml down --remove-orphans 2>/dev/null || true
                 for c in oute-dev-app oute-dev-postgres oute-dev-redis oute-dev-qdrant oute-dev-mindsdb oute-dev-caddy; do
                   docker rm -f \"\$c\" 2>/dev/null || true
                 done
                 docker rmi oute-dev-app 2>/dev/null || true
 
                 echo \"=== Build das imagens de develop ===\"
-                docker compose -f docker-compose.develop.yml build --no-cache --pull
-                docker compose -f docker-compose.develop.yml up -d
+                docker compose -f docker-compose.dev.yml build --no-cache --pull
+                docker compose -f docker-compose.dev.yml up -d
                 echo \"Develop stack iniciada\"
               "
             '
@@ -134,10 +134,10 @@ jobs:
                 OUTE_MIND=/home/renatobardicabral_gmail_com/oute-mind
                 cd \$OUTE_MIND 2>/dev/null || true
                 echo === Container Status ===
-                docker compose -f docker-compose.develop.yml ps
+                docker compose -f docker-compose.dev.yml ps
                 for svc in app postgres redis qdrant mindsdb caddy-dev; do
                   echo === \$svc Logs ===
-                  docker compose -f docker-compose.develop.yml logs --tail=20 \$svc 2>&1 || true
+                  docker compose -f docker-compose.dev.yml logs --tail=20 \$svc 2>&1 || true
                 done
               "
             ' || echo "Não foi possível conectar à VM para capturar logs"

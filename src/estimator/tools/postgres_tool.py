@@ -23,7 +23,7 @@ def _get_connection():
         port=int(os.getenv("POSTGRES_PORT", "5432")),
         user=os.getenv("POSTGRES_USER", "oute_prod_user"),
         password=os.getenv("POSTGRES_PASSWORD", ""),
-        database=os.getenv("POSTGRES_DB", "oute_production"),
+        database=os.getenv("POSTGRES_DB", "oute_prd"),
     )
 
 

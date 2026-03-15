@@ -4,7 +4,7 @@ services:
   # PostgreSQL - Database principal
   postgres:
     image: postgres:16-alpine
-    container_name: oute-postgres
+    container_name: oute-prd-postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -12,10 +12,10 @@ services:
     expose:
       - "5432"
     volumes:
-      - ./volumes/postgres:/var/lib/postgresql/data
+      - postgres-prd-data:/var/lib/postgresql/data
       - ./configs/postgres-init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
-      - oute-network
+      - oute-prd-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
@@ -26,14 +26,14 @@ services:
   # Redis - Queue manager
   redis:
     image: redis:7-alpine
-    container_name: oute-redis
+    container_name: oute-prd-redis
     command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}", "--appendonly", "yes"]
     expose:
       - "6379"
     volumes:
-      - ./volumes/redis:/data
+      - redis-prd-data:/data
     networks:
-      - oute-network
+      - oute-prd-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -44,16 +44,16 @@ services:
   # Qdrant - Vector database
   qdrant:
     image: qdrant/qdrant:latest
-    container_name: oute-qdrant
+    container_name: oute-prd-qdrant
     environment:
       QDRANT_API_KEY: ${QDRANT_API_KEY}
     expose:
       - "6333"
       - "6334"
     volumes:
-      - ./volumes/qdrant:/qdrant/storage
+      - qdrant-prd-data:/qdrant/storage
     networks:
-      - oute-network
+      - oute-prd-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
@@ -64,16 +64,16 @@ services:
   # MindsDB - AI memory management
   mindsdb:
     image: mindsdb/mindsdb:latest
-    container_name: oute-mindsdb
+    container_name: oute-prd-mindsdb
     environment:
       MINDSDB_STORAGE_DIR: /var/lib/mindsdb
     expose:
       - "47334"
       - "47335"
     volumes:
-      - ./volumes/mindsdb:/var/lib/mindsdb
+      - mindsdb-prd-data:/var/lib/mindsdb
     networks:
-      - oute-network
+      - oute-prd-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:47334/api/status"]
@@ -90,17 +90,17 @@ services:
       dockerfile: app/Dockerfile
       args:
         OPENAI_API_KEY_BUILD: ${OPENAI_API_KEY}
-    container_name: oute-app
+    container_name: oute-prd-app
     env_file:
       - .env.production
     environment:
       # Additional config not in .env.production
-      QDRANT_URL: http://qdrant:6333
-      POSTGRES_HOST: postgres
+      QDRANT_URL: http://oute-prd-qdrant:6333
+      POSTGRES_HOST: oute-prd-postgres
       POSTGRES_PORT: 5432
-      REDIS_HOST: redis
+      REDIS_HOST: oute-prd-redis
       REDIS_PORT: 6379
-      MINDSDB_HOST: mindsdb
+      MINDSDB_HOST: oute-prd-mindsdb
       MINDSDB_PORT: 47334
       FASTAPI_PORT: 8000
       FASTAPI_WORKERS: 4
@@ -116,7 +116,7 @@ services:
       mindsdb:
         condition: service_started
     networks:
-      - oute-network
+      - oute-prd-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -128,17 +128,17 @@ services:
   # Prometheus - Metrics
   prometheus:
     image: prom/prometheus:latest
-    container_name: oute-prometheus
+    container_name: oute-prd-prometheus
     expose:
       - "9090"
     volumes:
       - ./configs/prometheus.yml:/etc/prometheus/prometheus.yml
-      - ./volumes/prometheus:/prometheus
+      - prometheus-prd-data:/prometheus
     command:
       - "--config.file=/etc/prometheus/prometheus.yml"
       - "--storage.tsdb.path=/prometheus"
     networks:
-      - oute-network
+      - oute-prd-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9090/-/healthy"]
@@ -149,7 +149,7 @@ services:
   # Grafana - Dashboard
   grafana:
     image: grafana/grafana:latest
-    container_name: oute-grafana
+    container_name: oute-prd-grafana
     expose:
       - "3000"
     environment:
@@ -157,11 +157,11 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
       GF_USERS_ALLOW_SIGN_UP: "false"
     volumes:
-      - ./volumes/grafana:/var/lib/grafana
+      - grafana-prd-data:/var/lib/grafana
     depends_on:
       - prometheus
     networks:
-      - oute-network
+      - oute-prd-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
@@ -172,20 +172,38 @@ services:
   # Caddy - Reverse proxy with HTTP
   caddy:
     image: caddy:latest
-    container_name: oute-caddy
+    container_name: oute-prd-caddy
     ports:
       - "80:80"
       - "443:443"
     volumes:
-      - ./configs/Caddyfile:/etc/caddy/Caddyfile
-      - ./volumes/caddy-data:/data
-      - ./volumes/caddy-config:/config
+      - ./configs/Caddyfile.prd:/etc/caddy/Caddyfile
+      - caddy-prd-data:/data
+      - caddy-prd-config:/config
     networks:
-      - oute-network
+      - oute-prd-network
     restart: unless-stopped
     depends_on:
       - app
 
 networks:
-  oute-network:
+  oute-prd-network:
     driver: bridge
+
+volumes:
+  postgres-prd-data:
+    driver: local
+  redis-prd-data:
+    driver: local
+  qdrant-prd-data:
+    driver: local
+  mindsdb-prd-data:
+    driver: local
+  prometheus-prd-data:
+    driver: local
+  grafana-prd-data:
+    driver: local
+  caddy-prd-data:
+    driver: local
+  caddy-prd-config:
+    driver: local

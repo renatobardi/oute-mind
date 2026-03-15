@@ -34,37 +34,37 @@ oute.pro {
 
 	# FastAPI (oute-mind) - explicit routes
 	handle /health {
-		reverse_proxy http://app:8000
+		reverse_proxy http://oute-prd-app:8000
 	}
 	handle /health/* {
-		reverse_proxy http://app:8000
+		reverse_proxy http://oute-prd-app:8000
 	}
 	handle /healthcheck {
-		reverse_proxy http://app:8000
+		reverse_proxy http://oute-prd-app:8000
 	}
 	handle /estimate {
-		reverse_proxy http://app:8000
+		reverse_proxy http://oute-prd-app:8000
 	}
 	handle /run {
-		reverse_proxy http://app:8000
+		reverse_proxy http://oute-prd-app:8000
 	}
 	handle /approve/* {
-		reverse_proxy http://app:8000
+		reverse_proxy http://oute-prd-app:8000
 	}
 	handle /status/* {
-		reverse_proxy http://app:8000
+		reverse_proxy http://oute-prd-app:8000
 	}
 	handle /api/status {
-		reverse_proxy http://app:8000
+		reverse_proxy http://oute-prd-app:8000
 	}
 	handle /docs {
-		reverse_proxy http://app:8000
+		reverse_proxy http://oute-prd-app:8000
 	}
 	handle /openapi.json {
-		reverse_proxy http://app:8000
+		reverse_proxy http://oute-prd-app:8000
 	}
 	handle /redoc {
-		reverse_proxy http://app:8000
+		reverse_proxy http://oute-prd-app:8000
 	}
 
 	# Landing page (oute-home) - catch-all for / and assets
