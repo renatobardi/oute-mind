@@ -236,12 +236,16 @@ oute-mind/
 │   ├── Caddyfile                # Reverse proxy routes
 │   ├── postgres-init.sql        # Schema: 4 tables + indexes + triggers
 │   └── prometheus.yml           # Metrics scrape targets
+├── docs/
+│   ├── DEPLOYMENT_GCP.md        # GCP infrastructure setup and CI/CD
+│   ├── adr/                     # Architecture Decision Records
+│   ├── architecture/            # C4 diagrams and flows
+│   └── reference/
+│       ├── DEEPWIKI.md          # Technical deep dive
+│       ├── architecture.excalidraw.md # Diagrams for Excalidraw
+│       └── implementation_plan.md    # Roadmap
 ├── app/Dockerfile               # Python 3.13-slim + uv
-├── docker-compose.yml           # 8 services + 3 oute-main services
-└── reference/
-    ├── DEEPWIKI.md              # Technical deep dive
-    ├── architecture.excalidraw.md # Diagrams for Excalidraw
-    └── implementation_plan.md   # Roadmap
+└── docker-compose.yml           # 8 services + 6 oute-main services
 ```
 
 ---
